@@ -111,6 +111,19 @@ swiper
 manage.py shell
 ```
 
+#### user模块结构：
+
+```
+user
+ |- migrations/
+ |- __init__.py
+ |- api.py
+ |- apps.py
+ |- logic.py
+ |- models.py
+ |- tests.py
+```
+
 ###  1. models创建
 
 #### @property(描述符) 的使用
@@ -217,6 +230,10 @@ class Profile(models.Model):
 
 #### settings设置
 
+```
+settings.py
+```
+
 ```python
 ALLOWED_HOSTS = ['*']
 
@@ -299,8 +316,11 @@ from django.utils.functional import cached_property
 
 阿里云短信验证码：
 
-```python
+```
 config.py
+```
+
+```python
 """
 第三方配置
 """
@@ -315,6 +335,10 @@ ALI_SMS_PARAMS = {'AccessKeyId': 'LTAI5tN3SSefoMm8fGwnZzni',
                   }
 ```
 
+```
+logic.py
+```
+
 ```python
 import random
 
@@ -324,6 +348,17 @@ from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_tea_util import models as util_models
 
 from swiper.config import ALI_SMS_PARAMS
+from worker import call_by_worker
+def gen_verify_code(length=6):
+    return random.randrange(10 ** (length - 1), 10 ** length)
+
+
+@call_by_worker
+def send_verify_code(phone_numbers, code):
+    sms_cfg = ALI_SMS_PARAMS.copy()
+    sms_cfg['phone_numbers'] = phone_numbers
+    sms_cfg['template_param'] = '{"code":"%s"}' % code
+    Sample.main(sms_cfg)
 
 
 class Sample:
@@ -374,21 +409,80 @@ class Sample:
             raise str(error)
 
 
-def gen_verify_code(length=6):
-    return random.randrange(10 ** (length - 1), 10 ** length)
-
-
-def send_verify_code(phone_numbers, code):
-    sms_cfg = ALI_SMS_PARAMS.copy()
-    sms_cfg['phone_numbers'] = phone_numbers
-    sms_cfg['template_param'] = '{"code":"%s"}' % code
-    Sample.main(sms_cfg)
-
-
 if __name__ == '__main__':
-    sms_params = ALI_SMS_PARAMS.copy()
-    sms_params['phone_numbers'] = '17835699470'
-    sms_params['template_param'] = '{"code":"%s"}' % gen_verify_code()
-    print(Sample.main(sms_params))
+    send_verify_code('17835699470', gen_verify_code())
 ```
 
+## 六. celery
+
+#### celery模块结构：
+
+```
+worker
+ |- __init__.py
+ |- config.py
+```
+
+```
+__init__.py
+```
+
+```python
+import os
+from celery import Celery
+
+# 1. 设置环境变量，加载 Django 的 settings
+# Set the default Django settings module for the 'celery' program.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'swiper.settings')
+
+
+# 2. 创建 Celery Application
+celery_app = Celery('swiper')
+celery_app.config_from_object('worker.config')  # 3. 加载celery配置文件
+celery_app.autodiscover_tasks()  # 4. 自动发现通过装饰器定义的所有任务
+
+
+def call_by_worker(func):
+    """将任务在 Celery 中异步执行, 只需要将此函数作为装饰器使用，就可以免去一些频繁的操作"""
+    task = celery_app.task(func)
+    # task.delay 将task加到异步任务里面
+    return task.delay
+```
+
+```
+config.py
+```
+
+```
+# 配置代理人，指定代理人将任务存到哪里,这里是redis的0号库
+broker_url = 'redis://127.0.0.1:6379/0'
+broker_pool_limit = 1000
+
+# 设置时区，默认UTC
+timezone = 'Asia/Shanghai'
+# using serializer name
+accept_content = ['pickle', 'json']
+
+task_serializer = 'pickle'
+
+result_backend = 'redis://127.0.0.1:6379/1'
+result_serializer = 'pickle'
+result_cache_max = 10000  # 任务结果最大缓存数量
+result_expires = 3600  # 任务结果的过期时间
+
+worker_redirect_stdouts_level = 'INFO'
+```
+
+```
+windows：
+celery -A task worker --loglevel=info -P eventlet
+linux/mac
+celery -A task worker --loglevel=info
+task：celery任务模块名
+```
+
+> 会遇到的问题：
+>
+> 1. 启动celery没有 tasks 列表没有任务，Celery没有扫描到Django里的所有函数，解决方法：将任务所在模块的路由添加上。
+> 2. Windows系统celery启动任务不执行，解决方法：将celery启动命令行加上 -P eventlet。
+> 3. 调试celery时，使用Shell，方便快捷。

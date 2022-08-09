@@ -70,7 +70,4 @@ class Sample:
 
 
 if __name__ == '__main__':
-    sms_params = ALI_SMS_PARAMS.copy()
-    sms_params['phone_numbers'] = '17835699470'
-    sms_params['template_param'] = '{"code":"%s"}' % gen_verify_code()
-    send_verify_code(sms_params)
+    send_verify_code('17835699470', gen_verify_code())
