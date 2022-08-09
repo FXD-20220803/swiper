@@ -44,6 +44,13 @@ source .venv/Scripts/activate （2.激活虚拟环境）
 > 勾选下面这个选项（这样每次打开项目不用激活虚拟环境）
 >
 > - [x] Make available to all projects
+>
+> ```
+> where python/where pip 查找python和pip的位置
+> 如果pip使用的还是全局变量的，使用下面的方法
+> .venv\Scripts\python.exe -m pip list
+> .venv\Scripts\python.exe -m pip install -r requirement.txt
+> ```
 
 ## 三. 安装Python包
 

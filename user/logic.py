@@ -6,6 +6,19 @@ from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_tea_util import models as util_models
 
 from swiper.config import ALI_SMS_PARAMS
+from worker import call_by_worker
+
+
+def gen_verify_code(length=6):
+    return random.randrange(10 ** (length - 1), 10 ** length)
+
+
+@call_by_worker
+def send_verify_code(phone_numbers, code):
+    sms_cfg = ALI_SMS_PARAMS.copy()
+    sms_cfg['phone_numbers'] = phone_numbers
+    sms_cfg['template_param'] = '{"code":"%s"}' % code
+    Sample.main(sms_cfg)
 
 
 class Sample:
@@ -56,19 +69,8 @@ class Sample:
             raise str(error)
 
 
-def gen_verify_code(length=6):
-    return random.randrange(10 ** (length - 1), 10 ** length)
-
-
-def send_verify_code(phone_numbers, code):
-    sms_cfg = ALI_SMS_PARAMS.copy()
-    sms_cfg['phone_numbers'] = phone_numbers
-    sms_cfg['template_param'] = '{"code":"%s"}' % code
-    Sample.main(sms_cfg)
-
-
 if __name__ == '__main__':
     sms_params = ALI_SMS_PARAMS.copy()
     sms_params['phone_numbers'] = '17835699470'
     sms_params['template_param'] = '{"code":"%s"}' % gen_verify_code()
-    print(Sample.main(sms_params))
+    send_verify_code(sms_params)
