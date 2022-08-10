@@ -486,3 +486,49 @@ task：celery任务模块名
 > 1. 启动celery没有 tasks 列表没有任务，Celery没有扫描到Django里的所有函数，解决方法：将任务所在模块的路由添加上。
 > 2. Windows系统celery启动任务不执行，解决方法：将celery启动命令行加上 -P eventlet。
 > 3. 调试celery时，使用Shell，方便快捷。
+
+https://docs.celeryq.dev/en/stable/django/first-steps-with-django.html#using-celery-with-django
+
+#### 装饰器
+
+```python
+@celery_app.task
+def add(x, y):
+	return x + y
+--装饰器就是函数，将装饰的函数作为参数执行以后的返回值赋值给相同的函数名--
+add = celery_app.task(add)
+```
+
+```python
+def deco(func):
+    def wrap(*args, **kwargs):
+        r = func(*args, **kwargs)
+        return r
+
+    return wrap
+
+
+def bar(x, y):
+    return x * y
+
+
+@deco
+def par(x, y):
+    return x * y
+
+
+@deco
+def par1(x, y):
+    return x * y
+------------------------
+bar
+Out[5]: <function __main__.bar(x, y)>
+par
+Out[6]: <function __main__.deco.<locals>.wrap(*args, **kwargs)>
+par1
+Out[7]: <function __main__.deco.<locals>.wrap(*args, **kwargs)>
+bar = deco(bar)
+bar
+Out[9]: <function __main__.deco.<locals>.wrap(*args, **kwargs)>
+```
+
