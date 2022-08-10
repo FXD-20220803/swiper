@@ -1,11 +1,13 @@
-from django.shortcuts import render
+from libs.http import render_json
 from .logic import send_verify_code, gen_verify_code
+from django.http import HttpResponse
+
 
 def get_verify_code(request):
     """手机注册"""
     phonenum = request.GET.get('phonenum')
-    send_verify_code(phonenum,gen_verify_code())
-    pass
+    # send_verify_code(phonenum,gen_verify_code())
+    return render_json(phonenum, 0)
 
 
 def login(request):

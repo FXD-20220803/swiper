@@ -18,6 +18,7 @@ def send_verify_code(phone_numbers, code):
     sms_cfg = ALI_SMS_PARAMS.copy()
     sms_cfg['phone_numbers'] = phone_numbers
     sms_cfg['template_param'] = '{"code":"%s"}' % code
+    print(sms_cfg)
     Sample.main(sms_cfg)
 
 

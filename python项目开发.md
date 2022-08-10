@@ -532,3 +532,68 @@ bar
 Out[9]: <function __main__.deco.<locals>.wrap(*args, **kwargs)>
 ```
 
+## 七. libs模块
+
+> 新建一个library包，用来存放偏底层的一些方法
+
+### 1. http.py
+
+将接口返回进行包装
+
+```python
+import json
+from django.http import HttpResponse
+
+
+def render_json(data, code):
+    result = {
+        'code': code,
+        'data': data
+    }
+    json.dumps(result)
+    json_str = HttpResponse(result)
+    return json_str
+```
+
+## 八. common模块添加
+
+> 中间件一类的东西
+
+### 1. middleware.py
+
+不重要，一般是前端解决
+
+```python
+from django.utils.deprecation import MiddlewareMixin
+from django.http import HttpResponse
+
+
+class CorsMiddleware(MiddlewareMixin):
+    """处理客户端 JS 的跨域"""
+
+    def process_request(self, request):
+        if request.method == 'OPTIONS' and 'HTTP_ACCESS_CONTROL_REQUEST_METHOD' in request.META:
+            response = HttpResponse()
+            response['Content-Length'] = '0'
+            response['Access-Control-Allow-Headers'] = request.META
+            ['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']
+            response['Access-Control-Allow-Origin'] = 'http://127.0.0.1:8000'
+            return response
+
+    def process_response(self, request, response):
+        response['Access-Control-Allow-Origin'] = 'http://127.0.0.1:8000'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
+```
+
+> settings.py 添加
+
+```python
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'common.middleware.CorsMiddleware'  # 自己定义的中间件
+    'django.contrib.sessions.middleware.SessionMiddleware',
+	...
+]
+```
+
