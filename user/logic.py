@@ -4,6 +4,7 @@ from alibabacloud_dysmsapi20170525 import models as dysmsapi_20170525_models
 from alibabacloud_dysmsapi20170525.client import Client as Dysmsapi20170525Client
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_tea_util import models as util_models
+from django.core.cache import cache
 
 from swiper.config import ALI_SMS_PARAMS
 from worker import call_by_worker
@@ -14,12 +15,23 @@ def gen_verify_code(length=6):
 
 
 @call_by_worker
-def send_verify_code(phone_numbers, code):
+def send_verify_code(phonenum):
+    """异步发送验证码"""
+    vcode = gen_verify_code()
+    key = 'VerifyCode-%s' % phonenum
+    cache.set(key, vcode, 120)
     sms_cfg = ALI_SMS_PARAMS.copy()
-    sms_cfg['phone_numbers'] = phone_numbers
-    sms_cfg['template_param'] = '{"code":"%s"}' % code
-    print(sms_cfg)
-    Sample.main(sms_cfg)
+    sms_cfg['phone_numbers'] = phonenum
+    sms_cfg['template_param'] = '{"code":"%s"}' % vcode
+    response = Sample.main(sms_cfg)
+    return response
+
+
+def check_vcode(phonenum, vcode):
+    """检查验证码是否正确"""
+    key = 'VerifyCode-%s' % phonenum
+    saved_vcode = cache.get(key)
+    return saved_vcode == vcode
 
 
 class Sample:
@@ -51,7 +63,7 @@ class Sample:
     @staticmethod
     def main(
             args: dict,
-    ) -> None:
+    ):
         client = Sample.create_client(args.get('AccessKeyId'), args.get('AccessKeySecret'))
         send_sms_request = dysmsapi_20170525_models.SendSmsRequest(
             sign_name=args.get('sign_name'),
@@ -61,13 +73,8 @@ class Sample:
         )
         runtime = util_models.RuntimeOptions()
         # 复制代码运行请自行打印 API 的返回值
-        try:
-            # 复制代码运行请自行打印 API 的返回值
-            response = client.send_sms_with_options(send_sms_request, runtime)
-            return response.body
-        except Exception as error:
-            # 如有需要，请打印 error
-            raise str(error)
+        response = client.send_sms_with_options(send_sms_request, runtime)
+        return response.body
 
 
 if __name__ == '__main__':

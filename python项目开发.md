@@ -163,9 +163,7 @@ print("体积为：", b.volume)
 
 #### 构建User模型
 
-```
-models.py
-```
+`models.py`
 
 ```python
 from django.db import models
@@ -230,9 +228,7 @@ class Profile(models.Model):
 
 #### settings设置
 
-```
-settings.py
-```
+`settings.py`
 
 ```python
 ALLOWED_HOSTS = ['*']
@@ -271,7 +267,7 @@ LANGUAGE_CODE = 'zh-hans'
 TIME_ZONE = 'Asia/Shanghai'
 ```
 
-> /user/admin.py 也可以删掉
+> `/user/admin.py` 也可以删掉
 
 #### 表迁移
 
@@ -280,11 +276,11 @@ manage.py makemigrations
 manage.py migrate
 ```
 
-#### __ dict __（类字典）
+#### `__dict__`（类字典）
 
-> 包含了这个对象中的所有属性和属性值：{key:value,key:value,key:value}
+> 包含了这个对象中的所有属性和属性值：`{key:value,key:value,key:value}`
 
-#### hasattr(obj,attr)
+#### `hasattr(obj,attr)`
 
 > 检查obj对象中是否有attr属性，相当于 
 >
@@ -306,19 +302,17 @@ from django.utils.functional import cached_property
 
 ### 2. api (views)编写
 
-+ 可以将 **views.py** 改为 **api.py**，更直观，这些文件可以随便命名。
++ 可以将 `views.py` 改为 `api.py`，更直观，这些文件可以随便命名。
 
-+ 新增一个写逻辑代码的文件 **logic.py**。
++ 新增一个写逻辑代码的文件 `logic.py`。
 
-+ 新建一个**config.py**文件，来放与Django本身无关的配置，不影响Django。
++ 新建一个`config.py`文件，来放与Django本身无关的配置，不影响Django。
 
 #### 短信验证码
 
 阿里云短信验证码：
 
-```
-config.py
-```
+`config.py`
 
 ```python
 """
@@ -335,9 +329,7 @@ ALI_SMS_PARAMS = {'AccessKeyId': 'LTAI5tN3SSefoMm8fGwnZzni',
                   }
 ```
 
-```
-logic.py
-```
+`logic.py`
 
 ```python
 import random
@@ -423,9 +415,7 @@ worker
  |- config.py
 ```
 
-```
-__init__.py
-```
+`__init__.py`
 
 ```python
 import os
@@ -449,9 +439,7 @@ def call_by_worker(func):
     return task.delay
 ```
 
-```
-config.py
-```
+`config.py`
 
 ```
 # 配置代理人，指定代理人将任务存到哪里,这里是redis的0号库
@@ -536,9 +524,9 @@ Out[9]: <function __main__.deco.<locals>.wrap(*args, **kwargs)>
 
 > 新建一个library包，用来存放偏底层的一些方法
 
-### 1. http.py
+### 1. `http.py`
 
-将接口返回进行包装
++ `render_json` ：将接口返回进行包装
 
 ```python
 import json
@@ -557,11 +545,11 @@ def render_json(data, code):
 
 ## 八. common模块添加
 
-> 中间件一类的东西
+> 通常用的一些文件
 
-### 1. middleware.py
+### 1. `middleware.py`
 
-不重要，一般是前端解决
++ `CorsMiddleware`：不重要，一般是前端解决（这里处理的有问题）
 
 ```python
 from django.utils.deprecation import MiddlewareMixin
@@ -586,7 +574,7 @@ class CorsMiddleware(MiddlewareMixin):
         return response
 ```
 
-> settings.py 添加
+> `settings.py` 添加
 
 ```python
 MIDDLEWARE = [
@@ -595,5 +583,116 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
 	...
 ]
+```
+
+### 2. `error.py`
+
+> 一些错误的值
+>
+> ```python
+> VCODE_ERROR = 1000
+> ```
+
+### 3. `orm.py`
+
+> `orm`相关的方法: 
+
++ `ModelMixin`
+  + `to_dict`：将 model 对象转化为 dict
+
+#### 多态
+
+```shell
+  ...: class Animal:
+  ...:     def run(self):
+  ...:         print('Animal running')
+  ...: 
+  ...: class Lion:
+  ...:     def run(self):
+  ...:         print('Lion running')
+  ...: 
+  ...: class Tiger:
+  ...:     def run(self):
+  ...:         print('Tiger running')
+  ...: 
+  ...: class LeoTiger(Lion, Tiger):
+  ...:     pass
+  ...: cub = LeoTiger()
+isinstance(cub,Lion)
+Out[3]: True
+isinstance(cub,Tiger)
+Out[4]: True
+LeoTiger.mro()
+Out[5]: [__main__.LeoTiger, __main__.Lion, __main__.Tiger, object]
+```
+
+#### 多继承
+
++ 方法和属性的继承顺序：`cls.mro()`
+
++ 菱形继承问题：
+
+```
+继承关系示意
+菱形继承
+	A.foo()
+  /   \
+ B     C.foo()
+  \   /
+	D.foo()  # 方法的继承顺序，由 C3 算法得到
+```
+
++ `Mixin`：通过单纯的mixin类完成功能组合，所有继承的类的功能不会有任何的交叉
+  + 继承的所有的父类之间没有任何的方法和属性有重合
+  + 继承的所有的父类仅用来继承使用，父类自身不会创建任何实例
+
+> `self._meta.fields`，将对象的类属性列出来（不包括之后设置的对象属性）
+>
+> `field.attname`，循环上面的属性，用attname展示出来
+>
+> `obj.__dict__`，将obj的属性和属性值以字典形式列出来
+>
+> `getattr(obj, attr)`，获取obj对象的attr属性的值
+>
+> `setattr(obj, attr, value)`，设置obj对象的attr属性值为value
+>
+> `hasattr(obj, attr)`，判断obj对象有没有attr属性，如果有为True，否则为Flase
+
+`ModelMixin`
+
+```python
+class ModelMixin:
+    def to_dict(self):
+        """将 model 对象转化为 dict"""
+        data = {}
+        for field in self._meta.fields:
+            name = field.attname
+            # value = self.__dict__[name]  # 这个方法偏底层
+            value = getattr(self,name)
+            data[name] = value
+        return data
+```
+
+`models.py`
+
+```python
+from libs.orm import ModelMixin
+class Profile(models.Model, ModelMixin):
+    """用户配置项"""
+	...
+---------shell---------
+profile = Profile.objects.last()
+profile.to_dict()
+Out[10]: 
+{'id': 2,
+ 'dating_sex': '女',
+ 'location': '',
+ 'min_distance': 1,
+ 'max_distance': 10,
+ 'min_dating_age': 18,
+ 'max_dating_age': 45,
+ 'vibration': True,
+ 'only_match': True,
+ 'only_play': True}
 ```
 

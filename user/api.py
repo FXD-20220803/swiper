@@ -1,18 +1,28 @@
 from libs.http import render_json
-from .logic import send_verify_code, gen_verify_code
-from django.http import HttpResponse
-
+from .logic import send_verify_code, check_vcode
+from common import error
+from user.models import User
 
 def get_verify_code(request):
     """手机注册"""
     phonenum = request.GET.get('phonenum')
-    # send_verify_code(phonenum,gen_verify_code())
+    send_verify_code(phonenum)
     return render_json(phonenum, 0)
 
 
 def login(request):
     """短信验证码登录"""
-    pass
+    phonenum = request.GET.get('phonenum')
+    vcode = request.GET.get('vode')
+    if check_vcode(phonenum, vcode):
+        # 获取用户
+        user, created = User.objects.get_or_create(phonenum=phonenum)
+
+        # 记录登陆状态
+        request.session['uid'] = user.id
+        return render_json(user.to_dict(), 0)
+    else:
+        return render_json(phonenum, error.VCODE_ERROR)
 
 
 def get_profile(request):

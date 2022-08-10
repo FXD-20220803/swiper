@@ -1,7 +1,7 @@
 from django.db import models
 import datetime
 from django.utils.functional import cached_property
-
+from libs.orm import ModelMixin
 
 class User(models.Model):
     """用户数据模型"""
@@ -36,8 +36,19 @@ class User(models.Model):
             self._profile, _ = Profile.objects.get_or_create(id=self.id)  # 如果没有，则创建
         return self._profile
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nickname': self.nickname,
+            'phonenum': self.phonenum,
+            'sex': self.sex,
+            'avatar': self.avatar,
+            'location': self.location,
+            'age': self.age,  # 因为这个是额外添加的属性，所以需要自己重写
+        }
 
-class Profile(models.Model):
+
+class Profile(models.Model, ModelMixin):
     """用户配置项"""
 
     SEX = (
