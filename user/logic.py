@@ -78,4 +78,4 @@ class Sample:
 
 
 if __name__ == '__main__':
-    send_verify_code('17835699470', gen_verify_code())
+    send_verify_code('17835699470')
