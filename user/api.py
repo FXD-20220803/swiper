@@ -1,4 +1,5 @@
 from libs.http import render_json
+from .forms import ProfileForm
 from .logic import send_verify_code, check_vcode
 from common import error
 from user.models import User
@@ -34,7 +35,15 @@ def get_profile(request):
 
 def modify_profile(request):
     """修改个人资料"""
-    pass
+    form = ProfileForm(request.POST)
+    if form.is_valid():
+        user = request.user
+        user.profile.__dict__.update(form.cleaned_data)
+        user.profile.save()  # 保存到数据库
+        return render_json(None)
+    else:
+        print(form.cleaned_data)
+        return render_json(form.errors,error.PROFILE_ERROR)
 
 
 def upload_avatar(request):

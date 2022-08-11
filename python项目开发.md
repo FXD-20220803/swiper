@@ -310,11 +310,9 @@ from django.utils.functional import cached_property
 
 + 新建一个`config.py`文件，来放与Django本身无关的配置，不影响Django。
 
-#### 短信验证码
+#### `swiper/config.py`
 
 阿里云短信验证码：
-
-##### `swiper/config.py`
 
 ```python
 """
@@ -329,6 +327,12 @@ ALI_SMS_PARAMS = {'AccessKeyId': 'LTAI5tN3SSefoMm8fGwnZzni',
                   'phone_numbers': '',
                   'template_param': '',  # '{"code":"1234"}'
                   }
+```
+
+```python
+request.GET
+request.POST
+# 都是字典
 ```
 
 #### `user/api.py`
@@ -377,7 +381,7 @@ def upload_avatar(request):
     pass
 ```
 
-#### 缓存和session
+> 缓存和session
 
 ```python
 cache.set(key, vcode, 1800)  # 设置缓存
@@ -470,6 +474,62 @@ class Sample:
 
 if __name__ == '__main__':
     send_verify_code('17835699470')
+```
+
+#### `user/forms.py`
+
+```python
+from django import forms
+
+from user.models import User
+
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['dating_sex', 'location', 'min_distance',
+                  'max_distance', 'min_dating_age', 'max_dating_age',
+                  'vibration', 'only_match', 'only_play']
+
+```
+
+> Form表单可以很方便的将前端传过来的`request.POST`字典数据进行校验，因为其通过Meta与model关联
+
+```
+form_obj.is_valid()  # 验证数据是否都正确
+form_obj.errors  # 输出错误的字段及原因
+form_obj.cleaned_data  # 将清洗后的数据以字典形式输出
+form_obj.save()   # 将表单验证后的数据根据根据关联的model保存到数据库
+```
+
+> 表单例子👇
+
+```python
+class TestForm(Form):
+   ...:     TAGS = (
+   ...:         ('py', 'python'),
+   ...:         ('ln', 'linux'),
+   ...:         ('dj', 'django'),
+   ...:     )
+   ...:     fid = IntegerField()
+   ...:     name = CharField(max_length=10)
+   ...:     tag = ChoiceField(choices=TAGS)
+   ...:     date = DateField()
+   ...:     
+POST = {'fid':'123','name':'sdfsdfsd','tag':'dj','date':'2017-01-01'}
+form = TestForm(POST)
+form.is_valid()
+Out[14]: True
+
+form.errors
+Out[27]: {}
+
+form.cleaned_data
+Out[28]: 
+{'fid': 123,
+ 'name': 'sdfsdfsd',
+ 'tag': 'dj',
+ 'date': datetime.date(2017, 1, 1)}
 ```
 
 ## 六. celery
@@ -616,90 +676,7 @@ def render_json(data, code=0):
 
 ```
 
-## 八. common模块添加
-
-> 通常用的一些文件
-
-### 1. `middleware.py`
-
-+ `CorsMiddleware`：不重要，一般是前端解决（这里处理的有问题）。
-+ `AuthMiddleware`：认证中间件，省去每次调用接口的认证操作。
-
-```python
-from django.shortcuts import redirect
-from django.utils.deprecation import MiddlewareMixin
-from django.http import HttpResponse
-
-from common import error
-from libs.http import render_json
-from user.models import User
-
-
-class AuthMiddleware(MiddlewareMixin):
-    """用户登录认证"""
-    WHITE_LIST = [
-        'api/user/verify',
-        'api/user/login',
-    ]
-
-    def process_request(self, request):
-        # 如果请求的url开头在白名单内，直接跳过检查
-        for path in self.WHITE_LIST:
-            if request.path.startwith(path):  # path在request.path的开头或等于
-                return
-        # 进行登陆检查
-        uid = request.session.get('uid')
-        if uid:
-            try:
-                request.user = User.objects.get(id=uid)
-                return
-            except User.DoesNotExist:
-                request.session.flush()  # 清空session
-        return render_json(None, code=error.LOGIN_ERROR)
-
-
-class CorsMiddleware(MiddlewareMixin):
-    """处理客户端 JS 的跨域"""
-
-    def process_request(self, request):
-        if request.method == 'OPTIONS' and 'HTTP_ACCESS_CONTROL_REQUEST_METHOD' in request.META:
-            response = HttpResponse()
-            response['Content-Length'] = '0'
-            response['Access-Control-Allow-Headers'] = request.META
-            ['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']
-            response['Access-Control-Allow-Origin'] = 'http://127.0.0.1:8000'
-            return response
-
-    def process_response(self, request, response):
-        response['Access-Control-Allow-Origin'] = 'http://127.0.0.1:8000'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        return response
-
-```
-
-> `settings.py` 添加
-
-```python
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',  # 安全中间件
-    # 'common.middleware.CorsMiddleware' # 有问题
-    'django.contrib.sessions.middleware.SessionMiddleware',  # session中间件
-    'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',  # 目前可有可无
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'common.middleware.AuthMiddleware',  # 认证中间件，放到后面
-]
-```
-
-### 2. `error.py`
-
-> 一些错误的值
->
-> ```python
-> VCODE_ERROR = 1000
-> ```
-
-### 3. `orm.py`
+### 2. `orm.py`
 
 > `orm`相关的方法: 
 
@@ -801,3 +778,110 @@ Out[10]:
  'only_match': True,
  'only_play': True}
 ```
+
+## 八. common模块添加
+
+> 通常用的一些文件
+
+### 1. `middleware.py`
+
++ `CorsMiddleware`：不重要，一般是前端解决（这里处理的有问题）。
++ `AuthMiddleware`：认证中间件，省去每次调用接口的认证操作。
+
+```python
+from django.shortcuts import redirect
+from django.utils.deprecation import MiddlewareMixin
+from django.http import HttpResponse
+
+from common import error
+from libs.http import render_json
+from user.models import User
+
+
+class AuthMiddleware(MiddlewareMixin):
+    """用户登录认证"""
+    WHITE_LIST = [
+        'api/user/verify',
+        'api/user/login',
+    ]
+
+    def process_request(self, request):
+        # 如果请求的url开头在白名单内，直接跳过检查
+        for path in self.WHITE_LIST:
+            if request.path.startwith(path):  # path在request.path的开头或等于
+                return
+        # 进行登陆检查
+        uid = request.session.get('uid')
+        if uid:
+            try:
+                request.user = User.objects.get(id=uid)
+                return
+            except User.DoesNotExist:
+                request.session.flush()  # 清空session
+        return render_json(None, code=error.LOGIN_ERROR)
+
+
+class CorsMiddleware(MiddlewareMixin):
+    """处理客户端 JS 的跨域"""
+
+    def process_request(self, request):
+        if request.method == 'OPTIONS' and 'HTTP_ACCESS_CONTROL_REQUEST_METHOD' in request.META:
+            response = HttpResponse()
+            response['Content-Length'] = '0'
+            response['Access-Control-Allow-Headers'] = request.META
+            ['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']
+            response['Access-Control-Allow-Origin'] = 'http://127.0.0.1:8000'
+            return response
+
+    def process_response(self, request, response):
+        response['Access-Control-Allow-Origin'] = 'http://127.0.0.1:8000'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
+
+```
+
+> `settings.py` 添加
+
+```python
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',  # 安全中间件
+    # 'common.middleware.CorsMiddleware' # 有问题
+    'django.contrib.sessions.middleware.SessionMiddleware',  # session中间件
+    'django.middleware.common.CommonMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # 目前可有可无
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'common.middleware.AuthMiddleware',  # 认证中间件，放到后面
+]
+```
+
+### 2. `error.py`
+
+> 一些错误的值
+>
+> ```python
+> VCODE_ERROR = 1000  # 验证码错误
+> LOGIN_ERROR = 1001  # 登录错误
+> 
+> ```
+
+```python
+from libs.orm import ModelMixin
+class Profile(models.Model, ModelMixin):
+    """用户配置项"""
+	...
+---------shell---------
+profile = Profile.objects.last()
+profile.to_dict()
+Out[10]: 
+{'id': 2,
+ 'dating_sex': '女',
+ 'location': '',
+ 'min_distance': 1,
+ 'max_distance': 10,
+ 'min_dating_age': 18,
+ 'max_dating_age': 45,
+ 'vibration': True,
+ 'only_match': True,
+ 'only_play': True}
+```
+
