@@ -637,10 +637,18 @@ from user.models import User
 
 class AuthMiddleware(MiddlewareMixin):
     """用户登录认证"""
+    WHITE_LIST = [
+        'api/user/verify',
+        'api/user/login',
+    ]
 
     def process_request(self, request):
+        # 如果请求的url开头在白名单内，直接跳过检查
+        for path in self.WHITE_LIST:
+            if request.path.startwith(path):  # path在request.path的开头或等于
+                return
+        # 进行登陆检查
         uid = request.session.get('uid')
-        print(uid)
         if uid:
             try:
                 request.user = User.objects.get(id=uid)
