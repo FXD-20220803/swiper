@@ -243,8 +243,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # 'common.middleware.CorsMiddleware' # 有问题
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # 目前可有可无
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -312,7 +314,7 @@ from django.utils.functional import cached_property
 
 阿里云短信验证码：
 
-`config.py`
+##### `swiper/config.py`
 
 ```python
 """
@@ -329,7 +331,62 @@ ALI_SMS_PARAMS = {'AccessKeyId': 'LTAI5tN3SSefoMm8fGwnZzni',
                   }
 ```
 
-`logic.py`
+#### `user/api.py`
+
+```python
+from libs.http import render_json
+from .logic import send_verify_code, check_vcode
+from common import error
+from user.models import User
+
+
+def get_verify_code(request):
+    """手机注册"""
+    phonenum = request.GET.get('phonenum')
+    send_verify_code(phonenum)
+    return render_json(phonenum, 0)
+
+
+def login(request):
+    """短信验证码登录"""
+    phonenum = request.POST.get('phonenum')
+    vcode = request.POST.get('vode')
+    if check_vcode(phonenum, vcode):
+        # 获取用户
+        user, created = User.objects.get_or_create(phonenum=phonenum)
+
+        # 记录登陆状态
+        request.session['uid'] = user.id
+        return render_json(user.to_dict(), 0)
+    else:
+        return render_json(phonenum, error.VCODE_ERROR)
+
+
+def get_profile(request):
+    """获取个人资料"""
+    pass
+
+
+def modify_profile(request):
+    """修改个人资料"""
+    pass
+
+
+def upload_avatar(request):
+    """头像上传"""
+    pass
+```
+
+#### 缓存和session
+
+```python
+cache.set(key, vcode, 1800)  # 设置缓存
+saved_vcode = cache.get(key)  # get缓存
+
+request.session['uid'] = user.id  # 设置session
+```
+
+#### `user/logic.py`
 
 ```python
 import random
@@ -338,19 +395,34 @@ from alibabacloud_dysmsapi20170525 import models as dysmsapi_20170525_models
 from alibabacloud_dysmsapi20170525.client import Client as Dysmsapi20170525Client
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_tea_util import models as util_models
+from django.core.cache import cache
 
 from swiper.config import ALI_SMS_PARAMS
 from worker import call_by_worker
+
+
 def gen_verify_code(length=6):
     return random.randrange(10 ** (length - 1), 10 ** length)
 
 
 @call_by_worker
-def send_verify_code(phone_numbers, code):
+def send_verify_code(phonenum):
+    """异步发送验证码"""
+    vcode = gen_verify_code()
+    key = 'VerifyCode-%s' % phonenum
+    cache.set(key, vcode, 1800)
     sms_cfg = ALI_SMS_PARAMS.copy()
-    sms_cfg['phone_numbers'] = phone_numbers
-    sms_cfg['template_param'] = '{"code":"%s"}' % code
-    Sample.main(sms_cfg)
+    sms_cfg['phone_numbers'] = phonenum
+    sms_cfg['template_param'] = '{"code":"%s"}' % vcode
+    response = Sample.main(sms_cfg)
+    return response
+
+
+def check_vcode(phonenum, vcode):
+    """检查验证码是否正确"""
+    key = 'VerifyCode-%s' % phonenum
+    saved_vcode = cache.get(key)
+    return str(saved_vcode) == str(vcode)
 
 
 class Sample:
@@ -382,7 +454,7 @@ class Sample:
     @staticmethod
     def main(
             args: dict,
-    ) -> None:
+    ):
         client = Sample.create_client(args.get('AccessKeyId'), args.get('AccessKeySecret'))
         send_sms_request = dysmsapi_20170525_models.SendSmsRequest(
             sign_name=args.get('sign_name'),
@@ -392,17 +464,12 @@ class Sample:
         )
         runtime = util_models.RuntimeOptions()
         # 复制代码运行请自行打印 API 的返回值
-        try:
-            # 复制代码运行请自行打印 API 的返回值
-            response = client.send_sms_with_options(send_sms_request, runtime)
-            return response.body
-        except Exception as error:
-            # 如有需要，请打印 error
-            raise str(error)
+        response = client.send_sms_with_options(send_sms_request, runtime)
+        return response.body.code
 
 
 if __name__ == '__main__':
-    send_verify_code('17835699470', gen_verify_code())
+    send_verify_code('17835699470')
 ```
 
 ## 六. celery

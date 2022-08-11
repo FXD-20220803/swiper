@@ -42,7 +42,7 @@ MIDDLEWARE = [
     # 'common.middleware.CorsMiddleware' # 有问题
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # 目前可有可无
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 

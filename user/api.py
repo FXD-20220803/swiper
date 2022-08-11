@@ -3,6 +3,7 @@ from .logic import send_verify_code, check_vcode
 from common import error
 from user.models import User
 
+
 def get_verify_code(request):
     """手机注册"""
     phonenum = request.GET.get('phonenum')
@@ -12,8 +13,8 @@ def get_verify_code(request):
 
 def login(request):
     """短信验证码登录"""
-    phonenum = request.GET.get('phonenum')
-    vcode = request.GET.get('vode')
+    phonenum = request.POST.get('phonenum')
+    vcode = request.POST.get('vode')
     if check_vcode(phonenum, vcode):
         # 获取用户
         user, created = User.objects.get_or_create(phonenum=phonenum)

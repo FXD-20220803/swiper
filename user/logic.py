@@ -19,7 +19,7 @@ def send_verify_code(phonenum):
     """异步发送验证码"""
     vcode = gen_verify_code()
     key = 'VerifyCode-%s' % phonenum
-    cache.set(key, vcode, 120)
+    cache.set(key, vcode, 1800)
     sms_cfg = ALI_SMS_PARAMS.copy()
     sms_cfg['phone_numbers'] = phonenum
     sms_cfg['template_param'] = '{"code":"%s"}' % vcode
@@ -31,7 +31,7 @@ def check_vcode(phonenum, vcode):
     """检查验证码是否正确"""
     key = 'VerifyCode-%s' % phonenum
     saved_vcode = cache.get(key)
-    return saved_vcode == vcode
+    return str(saved_vcode) == str(vcode)
 
 
 class Sample:
@@ -74,7 +74,7 @@ class Sample:
         runtime = util_models.RuntimeOptions()
         # 复制代码运行请自行打印 API 的返回值
         response = client.send_sms_with_options(send_sms_request, runtime)
-        return response.body
+        return response.body.code
 
 
 if __name__ == '__main__':

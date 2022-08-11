@@ -3,6 +3,7 @@ import datetime
 from django.utils.functional import cached_property
 from libs.orm import ModelMixin
 
+
 class User(models.Model):
     """用户数据模型"""
     SEX = (
