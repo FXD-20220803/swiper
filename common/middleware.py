@@ -1,5 +1,24 @@
+from django.shortcuts import redirect
 from django.utils.deprecation import MiddlewareMixin
 from django.http import HttpResponse
+
+from common import error
+from libs.http import render_json
+from user.models import User
+
+
+class AuthMiddleware(MiddlewareMixin):
+    """用户登录认证"""
+
+    def process_request(self, request):
+        uid = request.session.get('uid')
+        if uid:
+            try:
+                request.user = User.objects.get(id=uid)
+                return
+            except User.DoesNotExist:
+                request.session.flush()  # 清空session
+        return render_json(None, code=error.LOGIN_ERROR)
 
 
 class CorsMiddleware(MiddlewareMixin):

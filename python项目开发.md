@@ -597,17 +597,23 @@ Out[9]: <function __main__.deco.<locals>.wrap(*args, **kwargs)>
 
 ```python
 import json
+
+from django.conf import settings
 from django.http import HttpResponse
 
 
-def render_json(data, code):
+def render_json(data, code=0):
     result = {
         'code': code,
         'data': data
     }
-    json.dumps(result)
-    json_str = HttpResponse(result)
-    return json_str
+    if settings.DEBUG:
+        # 如果为DEBUG模式，正常输出json格式，如果不是DEBUG，压缩后输出
+        json_str = json.dumps(result, ensure_ascii=False, indent=4, sort_keys=True)  # indent 缩进，sort_keys 排序
+    else:
+        json_str = json.dumps(result, ensure_ascii=False, separators=[',', ':'])
+    return HttpResponse(json_str)
+
 ```
 
 ## 八. common模块添加
@@ -616,11 +622,32 @@ def render_json(data, code):
 
 ### 1. `middleware.py`
 
-+ `CorsMiddleware`：不重要，一般是前端解决（这里处理的有问题）
++ `CorsMiddleware`：不重要，一般是前端解决（这里处理的有问题）。
++ `AuthMiddleware`：认证中间件，省去每次调用接口的认证操作。
 
 ```python
+from django.shortcuts import redirect
 from django.utils.deprecation import MiddlewareMixin
 from django.http import HttpResponse
+
+from common import error
+from libs.http import render_json
+from user.models import User
+
+
+class AuthMiddleware(MiddlewareMixin):
+    """用户登录认证"""
+
+    def process_request(self, request):
+        uid = request.session.get('uid')
+        print(uid)
+        if uid:
+            try:
+                request.user = User.objects.get(id=uid)
+                return
+            except User.DoesNotExist:
+                request.session.flush()  # 清空session
+        return render_json(None, code=error.LOGIN_ERROR)
 
 
 class CorsMiddleware(MiddlewareMixin):
@@ -639,16 +666,20 @@ class CorsMiddleware(MiddlewareMixin):
         response['Access-Control-Allow-Origin'] = 'http://127.0.0.1:8000'
         response['Access-Control-Allow-Credentials'] = 'true'
         return response
+
 ```
 
 > `settings.py` 添加
 
 ```python
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'common.middleware.CorsMiddleware'  # 自己定义的中间件
-    'django.contrib.sessions.middleware.SessionMiddleware',
-	...
+    'django.middleware.security.SecurityMiddleware',  # 安全中间件
+    # 'common.middleware.CorsMiddleware' # 有问题
+    'django.contrib.sessions.middleware.SessionMiddleware',  # session中间件
+    'django.middleware.common.CommonMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # 目前可有可无
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'common.middleware.AuthMiddleware',  # 认证中间件，放到后面
 ]
 ```
 
@@ -762,4 +793,3 @@ Out[10]:
  'only_match': True,
  'only_play': True}
 ```
-

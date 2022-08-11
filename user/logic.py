@@ -14,7 +14,7 @@ def gen_verify_code(length=6):
     return random.randrange(10 ** (length - 1), 10 ** length)
 
 
-@call_by_worker
+# @call_by_worker
 def send_verify_code(phonenum):
     """异步发送验证码"""
     vcode = gen_verify_code()

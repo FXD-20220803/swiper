@@ -1,1 +1,2 @@
-VCODE_ERROR = 1000
+VCODE_ERROR = 1000  # 验证码错误
+LOGIN_ERROR = 1001  # 登录错误
