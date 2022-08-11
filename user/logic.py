@@ -1,26 +1,30 @@
 import random
+import os
+from urllib.parse import urljoin
 
 from alibabacloud_dysmsapi20170525 import models as dysmsapi_20170525_models
 from alibabacloud_dysmsapi20170525.client import Client as Dysmsapi20170525Client
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_tea_util import models as util_models
 from django.core.cache import cache
+from swiper import config
 
-from swiper.config import ALI_SMS_PARAMS
+from libs.qncloud import async_upload_to_qiniu
+
 from worker import call_by_worker
-
+from django.conf import settings
 
 def gen_verify_code(length=6):
     return random.randrange(10 ** (length - 1), 10 ** length)
 
 
-# @call_by_worker
+@call_by_worker
 def send_verify_code(phonenum):
     """异步发送验证码"""
     vcode = gen_verify_code()
     key = 'VerifyCode-%s' % phonenum
     cache.set(key, vcode, 1800)
-    sms_cfg = ALI_SMS_PARAMS.copy()
+    sms_cfg = config.ALI_SMS_PARAMS.copy()
     sms_cfg['phone_numbers'] = phonenum
     sms_cfg['template_param'] = '{"code":"%s"}' % vcode
     response = Sample.main(sms_cfg)
@@ -32,6 +36,24 @@ def check_vcode(phonenum, vcode):
     key = 'VerifyCode-%s' % phonenum
     saved_vcode = cache.get(key)
     return str(saved_vcode) == str(vcode)
+
+
+def save_upload_file(user, upload_file):
+    """保存上传文件，并上传到七牛云"""
+    # 获取文件并保存到本地
+    ext_name = os.path.splitext(upload_file.name)[-1]
+    filename = 'Avatar-%s%s' % (user.id, ext_name)
+    filepath = os.path.join(settings.BASE_DIR, settings.MEDIA_ROOT, filename)
+    with open(filepath, 'wb') as newfile:
+        for chunk in upload_file.chunks():
+            newfile.write(chunk)
+    # 异步将头像上传七牛
+    async_upload_to_qiniu(filepath, filename)
+    # 将URL保存入数据库
+    url = urljoin(config.QN_BASE_URL, filename)
+    user.avatar = url
+    user.save()
+
 
 
 class Sample:

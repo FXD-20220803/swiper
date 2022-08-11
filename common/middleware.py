@@ -10,8 +10,8 @@ from user.models import User
 class AuthMiddleware(MiddlewareMixin):
     """用户登录认证"""
     WHITE_LIST = [
-        'api/user/verify',
-        'api/user/login',
+        '/api/user/verify',
+        '/api/user/login',
     ]
 
     def process_request(self, request):
