@@ -16,7 +16,7 @@ Including another URLconf
 from django.conf.urls import url
 from user import api as user_api
 from social import api as social_api
-urlpatterns = [
+urlpatterns = {
     url('^api/user/verify$', user_api.get_verify_code),
     url('^api/user/login$', user_api.login),
     url('^api/user/profile/modify$', user_api.modify_profile),
@@ -28,4 +28,5 @@ urlpatterns = [
     url('^api/social/superlike$', social_api.superlike),
     url('^api/social/dislike$', social_api.dislike),
     url('^api/social/rewind$', social_api.rewind),
-]
+    url('^api/social/friends$', social_api.friends),
+}

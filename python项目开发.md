@@ -128,6 +128,8 @@ user
 
 #### @property(描述符) 的使用
 
+> `property`第一个参数为实例本身`self`，所以类属性和实例属性都可以访问到。
+
 ```python
 class Box:
     def __init__(self):
@@ -160,6 +162,127 @@ class Box:
 b = Box()
 print("体积为：", b.volume)
 ```
+
+#### `@classmethod` 和`@staticmethod` 区别
+
+> 1. 语法区别
+>    + 声明时： 
+>      + `classmethod`的第一个参数为类本身(`cls`)，正如实例方法的第一个参数为对象本身(self);
+>      + `staticmethod`第一个参数不需要传入`cls`或`self`，故`staticmethod`中是无法访问类和对象的数据的。
+>    + 调用时：
+>      + 都可用类名直接调用
+>      + 也可用实例对象调用（不推荐，没必要）
+
+```python
+class A:
+    z = 789
+
+    def __init__(self):
+        self.x = 123
+        self.y = 456
+
+    def foo1(self):
+        print(self.x,self.y)
+
+    @classmethod
+    def foo2(cls):
+        return cls.z
+
+    @staticmethod
+    def foo3():
+        return 123
+
+A.foo2()
+Out[3]: 789
+A.foo3()
+Out[4]: 123
+a = A()
+a.foo2()
+Out[6]: 789
+a.foo3()
+Out[7]: 123
+```
+
+> 2. 使用场景
+>    + 两者特点：
+>      + `classmethod`可以设置修改类属性；也可以实例化对象；
+>      + `staticmethod`无法访问类或对象的数据，所以可把它当作一个辅助功能方法用，里面包含一些与该类有关的逻辑代码。比如`validate(*args)`
+> 3. 实例
+>    +  需求：从本地文件中`(txt, csv, json等等)`读取数据，生成一个对象。比如，本地有一个`data.json`文件，里面包含了每个学生的姓名及对应的考试成绩。现在要求读取该数据，生成一个class对象。 
+>    + 思路
+>      + `__init__`方法中，清晰的声明对象的属性
+>      + 用一个`classmethod`：`load_json`，专门用于读取data_file，获取数据，实例化对象
+>      + 用一个`staticmethod`：`validate`，来对要初始化数据进行有效性检查
+
+```python
+class Class:
+    def __init__(self, names, grades):
+        self._names = names
+        self._grades = grades
+
+    @classmethod
+    def load_json(cls, data_file):
+        # 读取数据,获得names,grades
+        cls.validate(names，grades)
+        return cls(names, grades)
+
+    @staticmethod
+    def validate(names, grades):
+        # 检查数据有效性
+        pass
+
+data_file = {'names':'fanxinde','grades':11}
+obj = Class.load_json(data_file)
+obj
+Out[14]: <__main__.Class at 0x25319575f70>
+obj._names
+Out[15]: 'fanxinde'
+obj._grades
+Out[16]: 11
+```
+
+加了一点
+
+```python
+class Class:
+    def __init__(self, names, grades):
+        self._names = names
+        self._grades = grades
+
+    def read_names(self):
+        return self._names
+
+    @property
+    def read_grades(self):
+        return self._grades
+
+    @classmethod
+    def load_json(cls, data_file):
+        # 读取数据,获得names,grades
+        names = data_file.get('names')
+        grades = data_file.get('grades')
+        cls.validate(names, grades)
+        return cls(names, grades)
+
+    @staticmethod
+    def validate(names, grades):
+        # 检查数据有效性
+        pass
+
+data_file = {'names':'fanxinde','grades':11}
+obj = Class.load_json(data_file)
+obj.read_names()
+Out[20]: 'fanxinde'
+obj.read_grades
+Out[21]: 11
+```
+
+总结：
+
+1. `property`装饰的方法 继承 `self`，将方法以**对象属性**的方式使用，方法返回一个值，即对象.方法直接得到值，不需要再加括号调用。
+2. ` classmethod `装饰的方法继承`cls`，将方法变为**类方法**使用，不需要实例化，类可以直接使用，当然对象也可以使用，但就失去了意义。
+3.  `staticmethod `装饰的方法不继承，将方法作为**类方法**使用， 不需要实例化，不访问类和对象的数据，当然对象也可以使用，但就失去了意义。
+4. 继承 self 的都是实例化之后才能使用。
 
 #### 构建User模型
 

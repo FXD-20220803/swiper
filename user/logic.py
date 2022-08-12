@@ -24,6 +24,7 @@ def send_verify_code(phonenum):
     vcode = gen_verify_code()
     key = 'VerifyCode-%s' % phonenum
     cache.set(key, vcode, 1800)
+    print(vcode)
     sms_cfg = config.ALI_SMS_PARAMS.copy()
     sms_cfg['phone_numbers'] = phonenum
     sms_cfg['template_param'] = '{"code":"%s"}' % vcode
