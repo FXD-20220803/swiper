@@ -9,7 +9,7 @@ class Swiperd(models.Model):
     )
     uid = models.IntegerField(verbose_name='滑动者的 UID')
     sid = models.IntegerField(verbose_name='被滑动者的 UID')
-    status = models.CharField(max_length=8, choices=STATUS)
+    status = models.CharField(max_length=32, choices=STATUS)
     time = models.DateTimeField(auto_now_add=True)
 
 

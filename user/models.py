@@ -7,8 +7,8 @@ from libs.orm import ModelMixin
 class User(models.Model):
     """用户数据模型"""
     SEX = (
-        ('男', '男'),
-        ('女', '女'),
+        ('Male', 'Male'),
+        ('Female', 'Female'),
     )
     nickname = models.CharField(max_length=32, unique=True)
     phonenum = models.CharField(max_length=16, unique=True)
@@ -53,11 +53,11 @@ class Profile(models.Model, ModelMixin):
     """用户配置项"""
 
     SEX = (
-        ('男', '男'),
-        ('女', '女'),
+        ('Male', 'Male'),
+        ('Female', 'Female'),
     )
-    dating_sex = models.CharField(default="女", max_length=8, choices=SEX, verbose_name='匹配的性别')
-    location = models.CharField(max_length=32, verbose_name='目标城市')
+    dating_sex = models.CharField(default="Female", max_length=8, choices=SEX, verbose_name='匹配的性别')
+    location = models.CharField(default="北京", max_length=32, verbose_name='目标城市')
 
     min_distance = models.IntegerField(default=1, verbose_name='最小查找范围')
     max_distance = models.IntegerField(default=10, verbose_name='最大查找范围')

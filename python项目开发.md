@@ -942,6 +942,119 @@ l = ['4', '2', '6', '5', '1', '9', '7', '3', '8']
 random.shuffle(l)  # 将l打乱，不能是字符串
 ```
 
+### 1. `social/api.py`
+
+```python
+from libs.http import render_json
+
+from social.logic import get_rcmd_users
+
+
+def get_users(request):
+    """获取推荐列表"""
+    group_num = int(request.GET.get('group_num', 0))
+    start = group_num * 5
+    end = start + 5
+    users = get_rcmd_users(request.user)[start:end]  # 切片，惰性加载
+    result = [user.to_dict() for user in users]
+    return render_json(result)
+
+
+def like(request):
+    """喜欢"""
+    return render_json(None)
+
+
+def superlike(request):
+    """超级喜欢"""
+    return render_json(None)
+
+
+def dislike(request):
+    """不喜欢"""
+    return render_json(None)
+
+
+def rewind(request):
+    """反悔"""
+    return render_json(None)
+
+```
+
+### 2. `social/logic.py`
+
+```python
+import datetime
+
+from user.models import User
+
+
+def get_rcmd_users(user):
+    """获取推荐用户"""
+    sex = user.profile.dating_sex
+    location = user.profile.location
+    min_age = user.profile.min_dating_age
+    max_age = user.profile.max_dating_age
+
+    current_year = datetime.date.today().year
+    min_year = current_year - min_age
+    max_year = current_year - max_age
+
+    users = User.objects.filter(sex=sex, location=location,
+                                birth_year__gte=max_year, birth_year__lte=min_year)
+    return users
+
+```
+
+### 3. `social/models.py`
+
+```python
+from django.db import models
+
+
+class Swiperd(models.Model):
+    STATUS = (
+        ('superlike', '超级喜欢'),
+        ('like', '喜欢'),
+        ('dislike', '不喜欢'),
+    )
+    uid = models.IntegerField(verbose_name='滑动者的 UID')
+    sid = models.IntegerField(verbose_name='被滑动者的 UID')
+    status = models.CharField(max_length=32, choices=STATUS)
+    time = models.DateTimeField(auto_now_add=True)
+
+
+class Friend(models.Model):
+    uid1 = models.IntegerField(verbose_name='用户1的 UID')
+    uid2 = models.IntegerField(verbose_name='用户2的 UID')
+
+```
+
+### 4. `swiper/settings.py`
+
+```python
+INSTALLED_APPS = [
+	...
+    'user',
+    'social',
+]
+```
+
+### 5. `swiper/urls.py`
+
+```python
+from social import api as social_api
+urlpatterns = [
+	...
+
+    url('^api/social/users$', social_api.get_users),
+    url('^api/social/like$', social_api.like),
+    url('^api/social/superlike$', social_api.superlike),
+    url('^api/social/dislike$', social_api.dislike),
+    url('^api/social/rewind$', social_api.rewind),
+]
+```
+
 ## 十一. scripts模块
 
 > 脚本文件
