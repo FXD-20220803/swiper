@@ -86,7 +86,7 @@ swiper
  |- requirement.txt
 ```
 
-## 五. 创建user应用
+## 五. user模块
 
 ```
 manage.py startapp user
@@ -921,3 +921,102 @@ Out[10]:
 > 1. 用户图片上传服务器
 > 2. 服务器将图片上传到七牛云
 > 3. 将七牛云返回的图片URL存入数据库
+
+## 十. social模块
+
+```
+manage.py startapp social
+or
+python manage.py startapp social
+```
+
+**random包**
+
+```python
+random.randrange(1, 10)  # 左闭右开区间，不包含10
+random.randint(1, 10)  # 左右闭区间，包含10
+random.random()
+random.choice(['a', 'b'])  # 从一个序列里面选择一个,可以是字符串
+random.sample('123456789', 3)   # 采样，从里面随机三个，可以是字符串
+l = ['4', '2', '6', '5', '1', '9', '7', '3', '8']
+random.shuffle(l)  # 将l打乱，不能是字符串
+```
+
+## 十一. scripts模块
+
+> 脚本文件
+>
+> 1. `init.py `：初始化一些数据，即造一些假数据。
+
+### 1. `init.py `
+
+```python
+#!/user/bin/env python
+
+import os
+import sys
+import random
+
+import django
+
+
+# 设置环境，加载 Django 环境
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+sys.path.insert(0, BASE_DIR)
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'swiper.settings')
+django.setup()
+
+# 如果没有上面环境的配置，下面的 User 不会被加载
+from user.models import User
+last_names = ('赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨'
+              '朱秦尤许何吕施张孔曹严华金魏陶姜'
+              '戚谢邹喻柏水窦章云苏潘葛奚范彭郎'
+              '鲁韦昌马苗凤花方俞任袁柳酆鲍史唐'
+              '费廉岑薛雷贺倪汤滕殷罗毕郝邬安常')
+
+first_names = {
+    'Male': [
+        '昊然', '坤曜', '英达', '木槿', '天钧', '华茂', '高轩', '琪琛',
+        '承天', '光辉', '天宇', '兴国', '宸浩', '润玉', '斯辰', '文哲',
+        '白草', '欧辰', '承志', '暮词', '俊邈', '阳锦', '黎杉', '鸿畅',
+        '俊语', '玉书', '林古', '清嘉', '戕仪', '景曜', '昕晖', '宾鸿',
+    ],
+    'Female': [
+        '宛梦', '沛玲', '紫雯', '婕娇', '冉甯', '淇汐', '嫦曦', '静璇',
+        '晓梅', '思涵', '妍玲', '妍青', '莎诗', '淇甄', '瑜菱', '依静',
+        '绮芙', '娣童', '鸿碧', '紫霜', '金琳', '陈红', '平墐', '焉雨',
+        '中颖', '咪渲', '萱梓', '姝晶', '凡淇', '南媛', '雪华', '婕鸣',
+    ]
+}
+
+
+def read_name():
+    last_name = random.choice(last_names)
+    sex = random.choice(['Male', 'Female'])
+    first_name = random.choice(first_names[sex])
+    return ''.join([last_name, first_name]), sex
+
+
+# 创建初始用户
+for i in range(100):
+    while True:
+        name, sex = read_name()
+        try:
+            User.objects.get(nickname=name)  # 存在重新循环选名字
+            continue
+        except User.DoesNotExist:  # 不存在使用此名字
+            break
+    User.objects.create(
+        phonenum='%s' % random.randrange(21000000000, 21900000000),
+        nickname=name,
+        sex=sex,
+        birth_year=random.randint(1980, 2000),
+        birth_month=random.randint(1, 12),
+        birth_day=random.randint(1, 28),
+        location=random.choice(['北京', '上海', '深圳', '广州', '西安', '成都', '沈阳', '武汉']),
+    )
+    print('created: %s %s' % (name, sex))
+
+```
+
