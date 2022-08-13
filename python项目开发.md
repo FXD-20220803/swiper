@@ -1015,7 +1015,9 @@ MIDDLEWARE = [
 > ```python
 > VCODE_ERROR = 1000  # 验证码错误
 > LOGIN_ERROR = 1001  # 登录错误
-> 
+> PROFILE_ERROR = 1002  # 前端传入profile数据没有通过验证
+> FILE_NOT_FOUND = 1003  # 上传的文件不存在
+> NOT_HAS_PERM = 1004  # 用户没有该权限
 > ```
 
 ```python
@@ -1070,7 +1072,9 @@ random.shuffle(l)  # 将l打乱，不能是字符串
 ```python
 from libs.http import render_json
 
-from social.logic import get_rcmd_users
+from social import logic
+from social.models import Friend
+from vip.logic import perm_require
 
 
 def get_users(request):
@@ -1078,29 +1082,47 @@ def get_users(request):
     group_num = int(request.GET.get('group_num', 0))
     start = group_num * 5
     end = start + 5
-    users = get_rcmd_users(request.user)[start:end]  # 切片，惰性加载
+    users = logic.get_rcmd_users(request.user)[start:end]  # 切片，惰性加载
     result = [user.to_dict() for user in users]
     return render_json(result)
 
 
 def like(request):
     """喜欢"""
-    return render_json(None)
+    sid = int(request.POST.get('sid'))
+    is_matched = logic.like(request.user, sid)
+    return render_json({'is_matched': is_matched})
 
 
+# perm_require('superlike')(superlike)(request)
+@perm_require('superlike')
 def superlike(request):
     """超级喜欢"""
-    return render_json(None)
+    sid = int(request.POST.get('sid'))
+    is_matched = logic.superlike(request.user, sid)
+    return render_json({'is_matched': is_matched})
 
 
 def dislike(request):
     """不喜欢"""
+    sid = int(request.POST.get('sid'))
+    logic.dislike(request.user, sid)
     return render_json(None)
 
 
+@perm_require('rewind')
 def rewind(request):
     """反悔"""
+    sid = int(request.POST.get('sid'))
+    logic.rewind(request.user, sid)
     return render_json(None)
+
+
+def friends(request):
+    """查询好友"""
+    my_friends = Friend.friends(request.user.id)
+    friends_info = [friend.to_dict() for friend in my_friends]
+    return render_json({'friends':friends_info})
 
 ```
 
@@ -1109,6 +1131,7 @@ def rewind(request):
 ```python
 import datetime
 
+from social.models import Swiperd, Friend
 from user.models import User
 
 
@@ -1127,12 +1150,53 @@ def get_rcmd_users(user):
                                 birth_year__gte=max_year, birth_year__lte=min_year)
     return users
 
+
+def like(user, sid):
+    """喜欢一个用户"""
+    Swiperd.mark(user.id, sid, 'like')
+    # 检查被滑动的用户是否喜欢过自己
+    if Swiperd.is_liked(uid=sid, sid=user.id):
+        Friend.be_friends(uid1=user.id, uid2=sid)
+        return True
+    else:
+        return False
+
+
+def superlike(user, sid):
+    """超级喜欢一个用户"""
+    Swiperd.mark(user.id, sid, 'superlike')
+    # 检查被滑动的用户是否喜欢过自己
+    if Swiperd.is_liked(uid=sid, sid=user.id):
+        Friend.be_friends(uid1=user.id, uid2=sid)
+        return True
+    else:
+        return False
+
+
+def dislike(user, sid):
+    """不喜欢一个用户"""
+    Swiperd.mark(user.id, sid, 'dislike')
+
+
+def rewind(user, sid):
+    """反悔"""
+    try:
+        # 取消滑动记录
+        Swiperd.objects.get(uid=user.id, sid=sid).delete()
+    except Swiperd.DoesNotExist:
+        pass
+    # 撤销好友关系
+    Friend.break_off(user.id, sid)
+
 ```
 
 ### 3. `social/models.py`
 
 ```python
 from django.db import models
+from django.db.models import Q
+
+from user.models import User
 
 
 class Swiperd(models.Model):
@@ -1146,10 +1210,54 @@ class Swiperd(models.Model):
     status = models.CharField(max_length=32, choices=STATUS)
     time = models.DateTimeField(auto_now_add=True)
 
+    @classmethod
+    def mark(cls, uid, sid, status):
+        """标记一次滑动"""
+        if status in ['superlike', 'like', 'dislike']:
+            defaults = {'status': status}
+            cls.objects.update_or_create(uid=uid, sid=sid, defaults=defaults)
+
+    @classmethod
+    def is_liked(cls, uid, sid):
+        """检查uid是否喜欢sid"""
+        return cls.objects.filter(uid=uid, sid=sid,
+                                  status__in=['superlike', 'like']).exists()
+
 
 class Friend(models.Model):
     uid1 = models.IntegerField(verbose_name='用户1的 UID')
     uid2 = models.IntegerField(verbose_name='用户2的 UID')
+
+    @classmethod
+    def be_friends(cls, uid1, uid2):
+        """成为好友"""
+        uid1, uid2 = (uid1, uid2) if uid1 < uid2 else (uid2, uid1)
+        cls.objects.get_or_create(uid1=uid1, uid2=uid2)  # 如果有的话就会忽略掉
+
+    @classmethod
+    def is_friend(cls, uid1, uid2):
+        """检查是否是好友"""
+        condition = Q(uid1=uid1, uid2=uid2) | Q(uid1=uid2, uid2=uid1)
+        return cls.objects.filter(condition).exists()
+
+    @classmethod
+    def break_off(cls, uid1, uid2):
+        """断交"""
+        uid1, uid2 = (uid1, uid2) if uid1 < uid2 else (uid2, uid1)
+        try:
+            cls.objects.get(uid1=uid1, uid2=uid2).delete()
+        except cls.DoesNotExist:
+            pass
+
+    @classmethod
+    def friends(cls,uid):
+        condition = Q(uid1=uid) | Q(uid2=uid)
+        relations = cls.objects.filter(condition)  # 过滤出我的好友关系
+        friend_id_list = []
+        for r in relations:
+            friend_id = r.uid2 if r.uid1 == uid else r.uid1
+            friend_id_list.append(friend_id)
+        return User.objects.filter(id__in=friend_id_list)
 
 ```
 
@@ -1188,13 +1296,12 @@ urlpatterns = [
 
 ```python
 #!/user/bin/env python
-
+# 指导这个脚本怎么执行
 import os
 import sys
 import random
 
 import django
-
 
 # 设置环境，加载 Django 环境
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1205,6 +1312,8 @@ django.setup()
 
 # 如果没有上面环境的配置，下面的 User 不会被加载
 from user.models import User
+from vip.models import Permission, Vip, VipPermRelation
+
 last_names = ('赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨'
               '朱秦尤许何吕施张孔曹严华金魏陶姜'
               '戚谢邹喻柏水窦章云苏潘葛奚范彭郎'
@@ -1227,33 +1336,194 @@ first_names = {
 }
 
 
-def read_name():
+def random_name():
     last_name = random.choice(last_names)
     sex = random.choice(['Male', 'Female'])
     first_name = random.choice(first_names[sex])
     return ''.join([last_name, first_name]), sex
 
 
-# 创建初始用户
-for i in range(100):
-    while True:
-        name, sex = read_name()
-        try:
-            User.objects.get(nickname=name)  # 存在重新循环选名字
-            continue
-        except User.DoesNotExist:  # 不存在使用此名字
-            break
-    User.objects.create(
-        phonenum='%s' % random.randrange(21000000000, 21900000000),
-        nickname=name,
-        sex=sex,
-        birth_year=random.randint(1980, 2000),
-        birth_month=random.randint(1, 12),
-        birth_day=random.randint(1, 28),
-        location=random.choice(['北京', '上海', '深圳', '广州', '西安', '成都', '沈阳', '武汉']),
-    )
-    print('created: %s %s' % (name, sex))
+def creat_robots(n):
+    # 创建初始用户
+    for i in range(n):
+        while True:
+            name, sex = random_name()
+            try:
+                User.objects.get(nickname=name)  # 存在重新循环选名字
+                continue
+            except User.DoesNotExist:  # 不存在使用此名字
+                break
+        User.objects.create(
+            phonenum='%s' % random.randrange(21000000000, 21900000000),
+            nickname=name,
+            sex=sex,
+            birth_year=random.randint(1980, 2000),
+            birth_month=random.randint(1, 12),
+            birth_day=random.randint(1, 28),
+            location=random.choice(['北京', '上海', '深圳', '广州', '西安', '成都', '沈阳', '武汉']),
+        )
+        print('created: %s %s' % (name, sex))
+
+
+def init_permission():
+    """创建初始权限"""
+    permissions = [
+        'vipflag',
+        'superlike',
+        'rewind',
+        'anylocation',
+        'unlimit_like',
+    ]
+    for name in permissions:
+        perm, _ = Permission.objects.get_or_create(name=name)
+        print('created permission %s' % perm.name)
+
+
+def init_vip():
+    for i in range(4):
+        vip, _ = Vip.objects.get_or_create(
+            name='会员-%d' % i,
+            level=i,
+            price=i * 5.0
+        )
+        print('created %s' % vip.name)
+
+
+def create_vip_perm_relation():
+    """创建 Vip 和 Permission 的关系"""
+    # 获取VIP
+    vip1 = Vip.objects.get(level=1)
+    vip2 = Vip.objects.get(level=2)
+    vip3 = Vip.objects.get(level=3)
+
+    # 获取权限
+    vipflag = Permission.objects.get(name='vipflag')
+    superlike = Permission.objects.get(name='superlike')
+    rewind = Permission.objects.get(name='rewind')
+    anylocation = Permission.objects.get(name='anylocation')
+    unlimit_like = Permission.objects.get(name='unlimit_like')
+
+    # 给 VIP 1 分配权限
+    VipPermRelation.objects.get_or_create(vip_id=vip1.id, perm_id=vipflag.id)
+    VipPermRelation.objects.get_or_create(vip_id=vip1.id, perm_id=superlike.id)
+
+    # 给 VIP 2 分配权限
+    VipPermRelation.objects.get_or_create(vip_id=vip2.id, perm_id=superlike.id)
+    VipPermRelation.objects.get_or_create(vip_id=vip2.id, perm_id=rewind.id)
+    VipPermRelation.objects.get_or_create(vip_id=vip2.id, perm_id=unlimit_like.id)
+
+    # 给 VIP 3 分配权限
+    VipPermRelation.objects.get_or_create(vip_id=vip3.id, perm_id=vipflag.id)
+    VipPermRelation.objects.get_or_create(vip_id=vip3.id, perm_id=superlike.id)
+    VipPermRelation.objects.get_or_create(vip_id=vip3.id, perm_id=rewind.id)
+    VipPermRelation.objects.get_or_create(vip_id=vip3.id, perm_id=anylocation.id)
+    VipPermRelation.objects.get_or_create(vip_id=vip3.id, perm_id=unlimit_like.id)
+
+
+if __name__ == '__main__':
+    # creat_robots(1000)
+    init_permission()
+    init_vip()
+    create_vip_perm_relation()
 
 ```
 
-## 十二. vip模块
+## 十二. `vip`模块
+
+### 1. `vip/logic.py`
+
+```python
+from common import error
+from libs.http import render_json
+
+
+def perm_require(perm_name):
+    """权限检查装饰器"""
+    def deco(view_func):
+        def wrap(request):
+            user = request.user
+            # 判断用户是否有perm_name这个权限，如果有权限正常执行函数并返回值，如果没有权限则返回错误
+            if user.vip.has_perm(perm_name):  
+                response = view_func(request)
+                return response
+            else:
+                return render_json(None, error.NOT_HAS_PERM)
+        return wrap
+    return deco
+
+```
+
+### 2. `vip/models.py`
+
+> 多对多需要三张表
+
+```python
+"""
+Vip - User: 一对多
+Vip - Permission: 一对多
+"""
+
+from django.db import models
+
+
+class Vip(models.Model):
+    """
+    会员1
+    会员2
+    会员3
+    """
+    name = models.CharField(max_length=32, unique=True)
+    level = models.IntegerField()
+    price = models.FloatField()
+
+    def perms(self):
+        """当前 VIP 具有的所有权限"""
+        relations = VipPermRelation.objects.filter(vip_id=self.id)
+        perm_id_list = [r.perm_id for r in relations]
+        return Permission.objects.filter(id__in=perm_id_list)
+
+    def has_perm(self, perm_name):
+        """检查这个会员等级是否有某种权限"""
+        perm = Permission.objects.get(name=perm_name)
+        return VipPermRelation.objects.filter(vip_id=self.id,perm_id=perm.id).exists()
+
+
+class Permission(models.Model):
+    """
+    权限表
+        vipflag 会员身份标识
+        superlike 超级喜欢
+        rewind 返回功能
+        anylocation 任意更改定位
+        unlimit_like 无限喜欢次数
+    """
+
+    name = models.CharField(max_length=32, unique=True)
+
+
+class VipPermRelation(models.Model):
+    """"
+    会员权限关系表
+    vip_id       perm_id
+    会员身份标识  1      3
+    超级喜欢      1  2   3
+    返回功能         2   3
+    任意更改定位         3
+    无限喜欢次数     2   3
+    """
+    vip_id = models.IntegerField()
+    perm_id = models.IntegerField()
+
+```
+
+### 3. `swiper/settings.py`
+
+```python
+INSTALLED_APPS = [
+	...
+    'user',
+    'social',
+    'vip',
+]
+```
+

@@ -7,6 +7,7 @@ def perm_require(perm_name):
     def deco(view_func):
         def wrap(request):
             user = request.user
+            # 判断用户是否有perm_name这个权限，如果有权限正常执行函数并返回值，如果没有权限则返回错误
             if user.vip.has_perm(perm_name):
                 response = view_func(request)
                 return response
