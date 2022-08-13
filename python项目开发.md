@@ -1527,3 +1527,111 @@ INSTALLED_APPS = [
 ]
 ```
 
+## 十三. logging配置
+
+[Django配置](https://blog.csdn.net/zhouzhiwengang/article/details/119606262)
+
+[logging模块使用](https://blog.csdn.net/weixin_41010198/article/details/89356417)
+
+### `swiper/settings.py`
+
+> simple：比较**简单**的日志信息格式，info Handler使用。
+>
+> verbose：比较**详细**的日志信息格式，error Handler使用。
+
+```python
+# 日志配置
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    # 格式配置
+    'formatters': {
+        'simple': {
+            "format": '%(asctime)s %(module)s.%(funcName)s %(message)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        },
+        'verbose': {
+            "format": '%(asctime)s %(levelname)s [%(process)d-%(threadName)s] '
+                      '%(module)s:%(funcName)s line %(lineno)d:%(message)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        }
+    },
+    # Handler 配置
+    'handlers': {
+        'console': {
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'class': 'logging.StreamHandler',
+        },
+        'info': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/info.log'),  # 日志保存路径
+            'when': "D",  # 每日切割日志
+            'backupCount': 30,  # 日志保留30天
+            'formatter': 'simple',
+        },
+        "error": {
+            'level': 'WARNING',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/error.log'),  # 日志保存路径
+            'when': "W0",  # 每周切割日志
+            'backupCount': 4,  # 日志保留30天
+            'formatter': 'verbose',
+        }
+    },
+    # Logger 配置
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+        },
+        "inf": {
+            "level": "INFO",
+            "handlers": ["info"],
+            'propagate': True,
+        },
+        "err": {
+            "level": "WARNING",
+            "handlers": ["error"],
+            'propagate': True,
+        }
+    }
+}
+```
+
+## 十四. 缓存处理
+
+> memcached
+>
+> + 操作
+>   + set
+>   + get
+>   + incr
+>   + decr
+>   + watch
+> + 优点：性能好
+> + 缺点：无法做到数据持久化保存，只用到了内存，一旦宕机数据会全部消失。
+>
+> redis
+
+[django cache](https://docs.djangoproject.com/en/4.1/topics/cache/)
+
+```
+pip install django-redis
+```
+
+### `swiper/settings.py`
+
+```python
+# 使用 redis 做缓存
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/4',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'PICKLE_VERSION': -1
+        }
+    }
+}
+```
+

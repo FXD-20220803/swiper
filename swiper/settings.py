@@ -15,7 +15,6 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
 
@@ -26,7 +25,6 @@ SECRET_KEY = '*!3y9m(n58bjtadt&$cu!-6e7gx$k9x0*v)@!$t#1au5i#1ly1'
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-
 
 # Application definition
 
@@ -67,7 +65,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'swiper.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 
@@ -77,7 +74,6 @@ DATABASES = {
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators
@@ -97,7 +93,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/1.11/topics/i18n/
 
@@ -111,10 +106,79 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
 STATIC_URL = '/static/'
 
 MEDIA_ROOT = 'medias'
+
+# 使用 redis 做缓存
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/4',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'PICKLE_VERSION': -1
+        }
+    }
+}
+
+# 日志配置
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True,
+    # 格式配置
+    'formatters': {
+        'simple': {
+            "format": '%(asctime)s %(module)s.%(funcName)s:%(message)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        },
+        'verbose': {
+            "format": '%(asctime)s %(levelname)s [%(process)d-%(threadName)s] '
+                      '%(module)s:%(funcName)s line %(lineno)d:%(message)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        }
+    },
+    # Handler 配置
+    'handlers': {
+        'console': {
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'class': 'logging.StreamHandler',
+        },
+        'info': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            ''
+            'filename': os.path.join(BASE_DIR, 'logs/info.log'),  # 日志保存路径
+            'when': "D",  # 每日切割日志
+            'backupCount': 30,  # 日志保留30天
+            'formatter': 'simple',
+        },
+        "error": {
+            'level': 'WARNING',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/error.log'),  # 日志保存路径
+            'when': "W0",  # 每周切割日志
+            'backupCount': 4,  # 日志保留30天
+            'formatter': 'verbose',
+        }
+    },
+    # Logger 配置
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+        },
+        "inf": {
+            "level": "INFO",
+            "handlers": ["info"],
+            'propagate': True,
+        },
+        "err": {
+            "level": "WARNING",
+            "handlers": ["error"],
+            'propagate': True,
+        }
+    }
+}

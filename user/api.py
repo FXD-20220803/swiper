@@ -32,7 +32,8 @@ def login(request):
 def get_profile(request):
     """获取个人资料"""
     user = request.user
-    return render_json(user.profile.to_dict())
+    user_profile = user.profile.to_dict()
+    return render_json(user_profile)
 
 
 def modify_profile(request):
