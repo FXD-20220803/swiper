@@ -2,6 +2,7 @@ from django.db import models
 import datetime
 from django.utils.functional import cached_property
 from libs.orm import ModelMixin
+from vip.models import Vip
 
 
 class User(models.Model):
@@ -20,6 +21,8 @@ class User(models.Model):
     birth_month = models.IntegerField(default=1)
     birth_day = models.IntegerField(default=1)
 
+    vip_id = models.IntegerField(default=1)
+
     # @property
     @cached_property  # django提供的缓存装饰器，相比于property的优势是，如果对象相同，类方法只执行一次。
     def age(self):
@@ -37,6 +40,15 @@ class User(models.Model):
             self._profile, _ = Profile.objects.get_or_create(id=self.id)  # 如果没有，则创建
         return self._profile
 
+    @property
+    def vip(self):
+        """用户对应的 VIP 模型"""
+        # if '_profile' not in self.__dict__:
+        # 这样的话查询只需要执行一次，用类属性记住，只要self还在就不会消失
+        if not hasattr(self, '_vip'):
+            self._vip = Vip.objects.get(id=self.vip_id)  # 如果没有，则创建
+        return self._vip
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -45,6 +57,7 @@ class User(models.Model):
             'sex': self.sex,
             'avatar': self.avatar,
             'location': self.location,
+            'vip_id': self.vip_id,
             'age': self.age,  # 因为这个是额外添加的属性，所以需要自己重写
         }
 
