@@ -11,7 +11,7 @@ class User(models.Model):
         ('Male', 'Male'),
         ('Female', 'Female'),
     )
-    nickname = models.CharField(max_length=32, unique=True)
+    nickname = models.CharField(max_length=32)
     phonenum = models.CharField(max_length=16, unique=True)
 
     sex = models.CharField(max_length=8, choices=SEX)
@@ -21,7 +21,7 @@ class User(models.Model):
     birth_month = models.IntegerField(default=1)
     birth_day = models.IntegerField(default=1)
 
-    vip_id = models.IntegerField(default=1)
+    vip_id = models.IntegerField(default=2)
 
     # @property
     @cached_property  # django提供的缓存装饰器，相比于property的优势是，如果对象相同，类方法只执行一次。

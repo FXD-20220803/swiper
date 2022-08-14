@@ -31,6 +31,7 @@ def send_verify_code(phonenum):
     sms_cfg = config.ALI_SMS_PARAMS.copy()
     sms_cfg['phone_numbers'] = phonenum
     sms_cfg['template_param'] = '{"code":"%s"}' % vcode
+    print(f'{phonenum}-{vcode}')
     response = Sample.main(sms_cfg)
     return response
 

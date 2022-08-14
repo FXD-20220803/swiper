@@ -1746,3 +1746,97 @@ from libs.db import patch_model
 # 动态给原生的 Model 打补丁，需要抢在models代码加载之前加载，所以写在settings前面
 patch_model()
 ```
+
+## 十五. 分布式数据库
+
+> 数据总量： 5000w
+>
+> 单台能力上限：500w
+>
+> 数据分片：sharding
+>
+> User表：
+>
+> user_0	  		1	-	500 w
+>
+> user_1	  500 w	-	1000 w
+>
+> user_2	1000 w	-	1500 w
+>
+> user_3	1500 w	-	2000 w
+>
+> user_4	2000 w	-	3500 w
+>
+> user_5	2500 w	-	3000 w
+>
+> user_6	3000 w	-	3500 w
+>
+> user_7	3500 w	-	4000 w
+>
+> user_8	4000 w	-	4500 w
+>
+> user_9	4500 w	-	5000 w
+
+
+
+> user_0	  1		11		...
+>
+> user_1	  2		12		...
+>
+> user_2	  3		13		...
+>
+> user_3	  4	    14		...
+>
+> user_4	  5		15		...
+>
+> user_5	  6		16		...
+>
+> user_6	  7		17		...
+>
+> user_7	  8		18		...
+>
+> user_8	  9		19		...
+>
+> user_9	10		20		...
+>
+> ​	master	<-	写入
+>
+> ​	slave		->	读取
+>
+> ​	slave		->	读取
+>
+> ​	slave		->	读取
+>
+> 读写分离
+>
+> zookeeper
+
+Django 配置mysql
+
+```
+pip install pymysql
+```
+
+### `swiper/settings`
+
+```python
+DATABASES = {
+    'default':
+        {
+            'ENGINE': 'django.db.backends.mysql',  # 数据库引擎
+            'NAME': 'swiper',  # 数据库名称
+            'HOST': '82.157.36.220',  # 数据库地址
+            'PORT': 3306,  # mysql端口
+            'USER': 'root',  # 数据库用户名
+            'PASSWORD': '123456',  # 数据库密码
+        }
+}
+```
+
+### `swiper/_init_.py`
+
+```python
+import pymysql
+pymysql.install_as_MySQLdb()
+```
+

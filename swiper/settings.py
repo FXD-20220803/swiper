@@ -69,10 +69,15 @@ WSGI_APPLICATION = 'swiper.wsgi.application'
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+    'default':
+        {
+            'ENGINE': 'django.db.backends.mysql',  # 数据库引擎
+            'NAME': 'swiper',  # 数据库名称
+            'HOST': '82.157.36.220',  # 数据库地址
+            'PORT': 3306,  # mysql端口
+            'USER': 'root',  # 数据库用户名
+            'PASSWORD': '123456',  # 数据库密码
+        }
 }
 
 # Password validation
@@ -117,7 +122,7 @@ MEDIA_ROOT = 'medias'
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/4',
+        'LOCATION': 'redis://82.157.36.220:6379/4',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'PICKLE_VERSION': -1,
@@ -125,7 +130,7 @@ CACHES = {
     },
     "session": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/2",		# 将session设置在1号库中
+        "LOCATION": "redis://82.157.36.220:6379/2",  # 将session设置在1号库中
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {"max_connections": 100}
@@ -135,7 +140,7 @@ CACHES = {
 }
 # session的存储配置
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_CACHE_ALIAS = 'session'		# 上面 CACHES 中设置的名称
+SESSION_CACHE_ALIAS = 'session'  # 上面 CACHES 中设置的名称
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 设置session失效时间为30天后, 单位为秒S
 
 # 日志配置
