@@ -1,4 +1,5 @@
 import os
+from django.core.cache import cache
 from libs.http import render_json
 from .forms import ProfileForm
 from .logic import send_verify_code, check_vcode, save_upload_file
@@ -21,9 +22,9 @@ def login(request):
     if check_vcode(phonenum, vcode):
         # 获取用户
         user, created = User.objects.get_or_create(phonenum=phonenum)
-
         # 记录登陆状态
         request.session['uid'] = user.id
+        request.session.set_expiry(settings.SESSION_COOKIE_AGE)  # 设置过期时间
         return render_json(user.to_dict())
     else:
         return render_json(phonenum, error.VCODE_ERROR)
@@ -32,7 +33,12 @@ def login(request):
 def get_profile(request):
     """获取个人资料"""
     user = request.user
-    user_profile = user.profile.to_dict()
+    key = 'Profile-%s' % user.id
+    # 从缓存获取
+    user_profile = cache.get(key)
+    if not user_profile:
+        user_profile = user.profile.to_dict()
+        cache.set(key, user_profile, settings.SESSION_COOKIE_AGE)
     return render_json(user_profile)
 
 
@@ -43,7 +49,11 @@ def modify_profile(request):
         user = request.user
         user.profile.__dict__.update(form.cleaned_data)
         user.profile.save()  # 保存到数据库
-        return render_json(None)
+        # 修改缓存
+        key = 'Profile-%s' % user.id
+        user_profile = user.profile.to_dict()
+        cache.set(key, user_profile, settings.SESSION_COOKIE_AGE)
+        return render_json(user_profile)
     else:
         return render_json(form.errors, error.PROFILE_ERROR)
 

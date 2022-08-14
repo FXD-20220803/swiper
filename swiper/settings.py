@@ -120,10 +120,23 @@ CACHES = {
         'LOCATION': 'redis://127.0.0.1:6379/4',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'PICKLE_VERSION': -1
+            'PICKLE_VERSION': -1,
+        }
+    },
+    "session": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/2",		# 将session设置在1号库中
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {"max_connections": 100}
+            # "PASSWORD": "123",
         }
     }
 }
+# session的存储配置
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'session'		# 上面 CACHES 中设置的名称
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 设置session失效时间为30天后, 单位为秒S
 
 # 日志配置
 LOGGING = {

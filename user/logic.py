@@ -1,3 +1,4 @@
+import logging
 import random
 import os
 from urllib.parse import urljoin
@@ -14,6 +15,9 @@ from libs.qncloud import async_upload_to_qiniu
 from worker import call_by_worker
 from django.conf import settings
 
+log = logging.getLogger('inf')
+
+
 def gen_verify_code(length=6):
     return random.randrange(10 ** (length - 1), 10 ** length)
 
@@ -23,8 +27,7 @@ def send_verify_code(phonenum):
     """异步发送验证码"""
     vcode = gen_verify_code()
     key = 'VerifyCode-%s' % phonenum
-    cache.set(key, vcode, 1800)
-    print(vcode)
+    cache.set(key, vcode)
     sms_cfg = config.ALI_SMS_PARAMS.copy()
     sms_cfg['phone_numbers'] = phonenum
     sms_cfg['template_param'] = '{"code":"%s"}' % vcode
@@ -36,6 +39,7 @@ def check_vcode(phonenum, vcode):
     """检查验证码是否正确"""
     key = 'VerifyCode-%s' % phonenum
     saved_vcode = cache.get(key)
+    log.info(f'check code is {str(saved_vcode) == str(vcode)}')
     return str(saved_vcode) == str(vcode)
 
 
@@ -54,7 +58,11 @@ def save_upload_file(user, upload_file):
     url = urljoin(config.QN_BASE_URL, filename)
     user.avatar = url
     user.save()
-
+    # 修改缓存
+    key = 'Profile-%s' % user.id
+    user_profile = user.profile.to_dict()
+    cache.set(key, user_profile, settings.SESSION_COOKIE_AGE)
+    log.info(f'{user.id} upload file {url} successful')
 
 
 class Sample:

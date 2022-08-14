@@ -8,6 +8,7 @@ log = logging.getLogger('err')
 
 def perm_require(perm_name):
     """权限检查装饰器"""
+
     def deco(view_func):
         def wrap(request):
             user = request.user
@@ -18,7 +19,7 @@ def perm_require(perm_name):
             else:
                 log.error(f'{request.user.nickname} not has {perm_name}')
                 return render_json(None, error.NOT_HAS_PERM)
+
         return wrap
+
     return deco
-
-
