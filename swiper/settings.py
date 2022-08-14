@@ -168,14 +168,16 @@ LOGGING = {
             'when': "D",  # 每日切割日志
             'backupCount': 30,  # 日志保留30天
             'formatter': 'simple',
+            'encoding': 'utf-8',  # 中文不乱码
         },
         "error": {
             'level': 'WARNING',
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs/error.log'),  # 日志保存路径
             'when': "W0",  # 每周切割日志
-            'backupCount': 4,  # 日志保留30天
+            'backupCount': 4,  # 日志保留4周
             'formatter': 'verbose',
+            'encoding': 'utf-8',  # 中文不乱码
         }
     },
     # Logger 配置

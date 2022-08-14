@@ -13,6 +13,7 @@ celery_app.autodiscover_tasks()  # 4. 自动发现通过装饰器定义的所有
 
 # windows启动命令：celery -A worker worker --loglevel=info -P eventlet
 # linux启动命令：celery -A worker worker --loglevel=info
+# 加日志的话 之前命令加上 --logfile="worker/celery_app.log"
 
 def call_by_worker(func):
     """将任务在 Celery 中异步执行, 只需要将此函数作为装饰器使用，就可以免去一些频繁的操作"""
