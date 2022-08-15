@@ -36,7 +36,7 @@ python -m venv .venv （1.创建虚拟环境）
 --------------------------------------------
 mac/linux：
 python -m venv .venv （1.创建虚拟环境）
-source .venv/Scripts/activate （2.激活虚拟环境）
+source .venv/bin/activate （2.激活虚拟环境）或 source activate
 ```
 
 + 直接用Pycharm创建（**使用方便**）
@@ -2110,5 +2110,45 @@ pip install gunicorn gevent
 
 ###  `swiper/gunicorn.conf.py `
 
+```python
+from multiprocessing import cpu_count
 
+bind = ["127.0.0.1:9000"]  # 线上环境不会开启在公网 IP 下，一般使用内网 IP
+daemon = True  # 是否开启守护进程模式
+pidfile = 'logs/gunicorn.pid'
+
+workers = cpu_count()*2
+worker_class = "gevent"  # 指定一个异步处理的库
+worker_connections = 65535
+
+keepalive = 60  # 服务器保持连接的时间，能够避免频繁的三次握手过程
+timeout = 30
+graceful_timeout = 10
+forwarded_allow_ips = '*'
+
+# 日志处理
+capture_output = True
+loglevel = 'info'
+errorlog = 'logs/gunicorn_error.log'
+```
+
+### 在Centos运行时遇到的坑
+
+> 问题：gunicorn 将环境加载到虚拟环境之外
+>
+> 解决方案：
+>
+> 1.  首先退出虚拟环境： `deactivate `
+> 2.  再次进入虚拟环境： `source .venv/bin/activate`
+> 3. `gunicorn -c swiper/gunicorn.conf.py swiper.wsgi`，可以了
+
+```shell
+(.venv) [root@VM-20-5-centos swiper]# curl http://127.0.0.1:9000/api/user/profile
+{
+    "code": 1001,
+    "data": null
+}
+(.venv) [root@VM-20-5-centos swiper]# ps aux|grep gunicorn
+root     1005885  0.0  0.2 132432 22644 ?        S    01:39   0:00 /root/swiper_test/swiper/.venv/bin/python3.7 /root/swiper_test/swiper/.venv/bin/gunicorn -c swiper/gunicorn.conf.py swiper.wsgi
+```
 
