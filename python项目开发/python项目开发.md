@@ -2141,6 +2141,10 @@ errorlog = 'logs/gunicorn_error.log'
 > 1.  首先退出虚拟环境： `deactivate `
 > 2.  再次进入虚拟环境： `source .venv/bin/activate`
 > 3. `gunicorn -c swiper/gunicorn.conf.py swiper.wsgi`，可以了
+>
+> ```shell
+> kill `logs/gunicorn.pid` # 杀死进程，进程已经保存在了 logs/gunicorn.pid 文件
+> ```
 
 ```shell
 (.venv) [root@VM-20-5-centos swiper]# curl http://127.0.0.1:9000/api/user/profile
@@ -2152,3 +2156,101 @@ errorlog = 'logs/gunicorn_error.log'
 root     1005885  0.0  0.2 132432 22644 ?        S    01:39   0:00 /root/swiper_test/swiper/.venv/bin/python3.7 /root/swiper_test/swiper/.venv/bin/gunicorn -c swiper/gunicorn.conf.py swiper.wsgi
 ```
 
+### 进行压力测试
+
+```shell
+(.venv) [root@VM-20-5-centos swiper]# ab -n 1000 -c 100 http://127.0.0.1:9000/api/user/profile
+This is ApacheBench, Version 2.3 <$Revision: 1843412 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 127.0.0.1 (be patient)
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Completed 600 requests
+Completed 700 requests
+Completed 800 requests
+Completed 900 requests
+Completed 1000 requests
+Finished 1000 requests
+
+
+Server Software:        gunicorn
+Server Hostname:        127.0.0.1
+Server Port:            9000
+
+Document Path:          /api/user/profile
+Document Length:        25 bytes
+
+Concurrency Level:      100
+Time taken for tests:   1.194 seconds
+Complete requests:      1000
+Failed requests:        0
+Total transferred:      278000 bytes
+HTML transferred:       25000 bytes
+Requests per second:    837.71 [#/sec] (mean)
+Time per request:       119.374 [ms] (mean)
+Time per request:       1.194 [ms] (mean, across all concurrent requests)
+Transfer rate:          227.42 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.5      0       3
+Processing:    40   92 123.2     65     997
+Waiting:       40   91 123.1     63     996
+Total:         40   93 123.5     65     999
+
+Percentage of the requests served within a certain time (ms)
+  50%     65
+  66%     74
+  75%     76
+  80%     79
+  90%    144
+  95%    185
+  98%    783
+  99%    808
+ 100%    999 (longest request)
+```
+
++ RPS 每秒的请求数比较（优了二三十倍）
+
+|                                           | Django                                             | Gunicorn                                          |
+| ----------------------------------------- | -------------------------------------------------- | ------------------------------------------------- |
+| Concurrency Level                         | 100                                                | 100                                               |
+| Time taken for tests                      | 27.438 seconds                                     | 1.194 seconds                                     |
+| Complete requests                         | 1000                                               | 1000                                              |
+| Total transferred                         | 292000 bytes                                       | 278000 bytes                                      |
+| HTML transferred                          | 38000 bytes                                        | 25000 bytes                                       |
+| **Requests per second 每秒的请求数，RPS** | **36.45 [#/sec] (mean)**                           | **837.71 [#/sec] (mean)**                         |
+| Time per request                          | 2743.766 [ms] (mean)                               | 119.374 [ms] (mean)                               |
+| Time per request                          | 27.438 [ms] (mean, across all concurrent requests) | 1.194 [ms] (mean, across all concurrent requests) |
+| Transfer rate                             | 10.39 [Kbytes/sec] received                        | 227.42 [Kbytes/sec] received                      |
+
++ Connection Times 耗时比较（优了二三十倍）
+
+| Connection Times (ms) | min      | mean     | [+/-sd]   | median   | max      |                            |
+| --------------------- | -------- | -------- | --------- | -------- | -------- | -------------------------- |
+| Connect               | 0        | 91       | 297.0     | 0        | 1060     | 网络连接环节占据时长       |
+| Processing            | 5        | 464      | 2547.9    | 18       | 26377    | 网络处理环节占据时长       |
+| Waiting               | 1        | 454      | 2548.8    | 8        | 26374    | 网络之间发生阻塞等待的时间 |
+| Total                 | 6        | 555      | 2728.3    | 18       | 27436    | 总的时间                   |
+| ↑Django **Gunicorn↓** | **最小** | **平均** | **误差**  | **中位** | **最大** |                            |
+| **Connect**           | **0**    | **0**    | **0.5**   | **0**    | **3**    |                            |
+| **Processing**        | **40**   | **92**   | **123.2** | **65**   | **997**  |                            |
+| **Waiting**           | **40**   | **91**   | **123.1** | **63**   | **996**  |                            |
+| **Total**             | **40**   | **93**   | **123.5** | **65**   | **999**  |                            |
+
+### 单台服务器最⼤连接数 
+
+> `ulimit -n` 查看
+
++ ⽂件描述符: 限制⽂件打开数量 (⼀切皆⽂件) 
+
++ 内核限制: `net.core.somaxconn`
+
++ 内存限制 
+
++ 修改⽂件描述符: `ulimit -n 65535`
