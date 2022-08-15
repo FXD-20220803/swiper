@@ -55,7 +55,11 @@ source .venv/Scripts/activate （2.激活虚拟环境）
 ## 三. 安装Python包
 
 ```
-pip install django redis gunicorn gevent celery ipython
+pip install django redis gunicorn gevent celery ipython pymysql qiniu django_redis
+```
+
+```
+pip install alibabacloud_dysmsapi20170525
 ```
 
 将环境的包导入**requirements.txt**文件
@@ -1840,5 +1844,112 @@ import pymysql
 pymysql.install_as_MySQLdb()
 ```
 
-## 十六. 压力测试
+## 十六. 压力测试与TCP
 
+### ab (apache benchmark)
+
+工具：[文档](https://httpd.apache.org/docs/2.4/)
+
+### `centos` 安装
+
+[ab 资料](https://www.136.la/nginx/show-99885.html)
+
+[Apache Benchmark测试结果数据解析](https://blog.csdn.net/weixin_43180484/article/details/110048945)
+
+```shell
+sudo yum install httpd
+sudo systemctl enable httpd
+sudo systemctl start httpd
+```
+
+### 测试命令
+
+```shell
+curl http://127.0.0.1:8000/api/user/profile  # 检查链接是否
+ab -n 1000 -c 100 http://127.0.0.1:8000/api/user/profile  # -n 请求1000次，-c 并发100次
+```
+
+```shell
+[root@VM-20-5-centos ~]#ab -n 1000 -c 100 http://127.0.0.1:8000/api/user/profile
+This is ApacheBench, Version 2.3 <$Revision: 1843412 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 127.0.0.1 (be patient)
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Completed 600 requests
+Completed 700 requests
+Completed 800 requests
+Completed 900 requests
+Completed 1000 requests
+Finished 1000 requests
+
+
+Server Software:        WSGIServer/0.2
+Server Hostname:        127.0.0.1
+Server Port:            8000
+
+Document Path:          /api/user/profile
+Document Length:        38 bytes
+
+Concurrency Level:      100
+Time taken for tests:   27.438 seconds
+Complete requests:      1000
+Failed requests:        0
+Total transferred:      292000 bytes
+HTML transferred:       38000 bytes
+Requests per second:    36.45 [#/sec] (mean)	# 最重要：每秒的请求数，RPS
+Time per request:       2743.766 [ms] (mean)
+Time per request:       27.438 [ms] (mean, across all concurrent requests)
+Transfer rate:          10.39 [Kbytes/sec] received
+
+Connection Times (ms)
+			  最小  平均  误差    中位	   最大	 # 中位数比较准确
+              min  mean[+/-sd] median   max
+Connect:        0   91 297.0      0    1060		# 网络连接环节占据时长
+Processing:     5  464 2547.9     18   26377	# 网络处理环节占据时长
+Waiting:        1  454 2548.8      8   26374	# 网络之间发生阻塞等待的时间
+Total:          6  555 2728.3     18   27436	# 总的时间
+
+Percentage of the requests served within a certain time (ms)
+  50%     18
+  66%     20
+  75%     22
+  80%     24
+  90%     36
+  95%   2730
+  98%   7671
+  99%  14133
+ 100%  27436 (longest request)
+```
+
+> HTTP 超文本传输协议：建立在TCP基础之上的，短连接协议，通信完一次以后就会断开，需要频繁的建立TCP连接。
+>
+> 
+>
+> TCP（缺点：慢）：
+>
+> + 三次握手（全双工）：
+>
+>   1. client	->	SYN			   ->	server
+>   2. client	<-	ACK + SYN	<-	server
+>   3. client	->	           ACK    ->	server
+>
+>   + SYN：请求建立联系
+>   + ACK：应答
+
+ SYN：同步序列编号（**Synchronize Sequence Numbers**）。是TCP/IP建立连接时使用的握手信号。在客户机和[服务器](https://baike.baidu.com/item/服务器/100571)之间建立正常的TCP网络连接时，客户机首先发出一个SYN消息，服务器使用SYN+ACK应答表示接收到了这个消息，最后客户机再以[ACK](https://baike.baidu.com/item/ACK/3692629)消息响应。这样在[客户机](https://baike.baidu.com/item/客户机/5168153)和服务器之间才能建立起可靠的TCP连接，数据才可以在客户机和服务器之间传递。 
+
+ACK (**Acknowledge character**）即是确认字符，在数据通信中，接收站发给发送站的一种传输类[控制字符](https://baike.baidu.com/item/控制字符/6913704)。表示发来的数据已确认接收无误。在[TCP/IP协议](https://baike.baidu.com/item/TCP%2FIP协议)中，如果接收方成功的接收到数据，那么会回复一个ACK数据。通常ACK信号有自己固定的格式,长度大小,由接收方回复给发送方。
+
+全双工 / 半双工
+
+全双工：我和你发送数据，与你和我发送数据互不干扰的。比如有时候打电话，信号不好，你能听到我说话，我听不到你说话。
+
+半双工：我和你发送数据时，你不能和我发送数据，因为他俩共用一个信道。
+
+![1660561781370](python项目开发.assets/1660561781370.png)
