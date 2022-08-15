@@ -30,7 +30,7 @@ ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
-    'django.contrib.sessions',
+    'django.contrib.sessions.backends.cached_db',
     'django.contrib.staticfiles',
     'user',
     'social',
