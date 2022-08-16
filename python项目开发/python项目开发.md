@@ -2335,16 +2335,111 @@ Web App => 负责 Web 应⽤的业务逻辑、数据存储等等
 > + free -m	以Mb为单位
 > + free -k 	以Kb为单位
 > + free -g	 以Gb为单位
+>
+> 在 vim 下，/搜索的词，按Shift+上/下，可以跳到词的位置。
 
 ### Nginx
 
 [Nginx下载稳定版 Stable version](http://nginx.org/en/download.html)
 
 ```
-cd download  # 1.在根目录的download文件夹下载安装包
-wget http://nginx.org/download/nginx-1.22.0.tar.gz  # 2.下载压缩包
-tar -xzf nginx-1.22.0.tar.gz  # 3.解压
-cd nginx-1.22.0/  # 4.进入文件夹
-./configure  # 将二进制的源代码进行编译，多了一个Makefile文件
+cd download		# 1.在根目录的download文件夹下载安装包，没有的话mkdir一下
+wget http://nginx.org/download/nginx-1.22.0.tar.gz		# 2.下载压缩包
+tar -xzf nginx-1.22.0.tar.gz		# 3.解压
+cd nginx-1.22.0/		# 4.进入文件夹
+./configure		# 5.通过configure自动完成配置，生成一个Makefile编译的指导文件
+make		# 6.阅读Makefile，根据这个文件完成二进制源代码的编译，编译的文件在	/objs 目录下
+make install		# 7.安装，会安装到 /usr/local/nginx 目录下
+/usr/local/nginx/conf/nginx.conf		 8.配置文件
+```
+
+1.  在 Nginx 根目录下，通过执行以下命令验证配置文件问题：`./sbin/nginx -t`
+2.  在 Nginx 根目录下，通过执行以下命令重启 Nginx：`./sbin/nginx -s reload`
+
+```nginx
+#user  nobody;
+worker_processes  4;
+
+error_log  logs/error.log;
+error_log  logs/error.log  notice;
+error_log  logs/error.log  info;
+#pid        logs/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  logs/access.log  main;
+    sendfile        on;
+    tcp_nopush     on;
+    keepalive_timeout  65;
+    gzip  on;
+    upstream app_server {
+        server 127.0.0.1:9000 weight=10;
+    }
+    server {
+        listen       80;
+        server_name  localhost;
+        access_log  logs/host.access.log  main;
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+        location / {
+                proxy_pass http://app_server;  # 反向代理
+                proxy_set_header Host $http_host;
+        }
+    }
+}
+```
+
+### Nginx 服务器 SSL 证书安装部署
+
+[Nginx 服务器 SSL 证书安装部署](https://cloud.tencent.com/document/product/400/35244)
+
+## 二十. Nginx 与不间断重启
+
++ 反向代理 
+
++ 负载均衡 
+
+  + 轮询: rr (默认) 
+  + 权重: weight 
+  + IP哈希: ip_hash 
+
+  + 最⼩连接数: least_conn 
+
++ 其他负载均衡 
+  + LVS 
+  + HAProxy 
+  + F5 
+
++ 可以不使⽤ Nginx, 直接⽤ gunicorn 吗？ 
+  + Nginx 相对于 Gunicorn 来说更安全 
+  + Nginx 可以⽤作负载均衡
+
+## 二十一. 脚本开发
+
++ 系统部署脚本 
+
++ 代码发布脚本 
+
++ 程序启动脚本 
+
++ 程序停⽌脚本 
+
++ 程序重启脚本 
+
++ 不间断重启: `kill -HUP [进程 ID]`
+
+```
+/tmp	临时的文件夹，下载完以后安装包就没用了
 ```
 
