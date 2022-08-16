@@ -728,6 +728,7 @@ task：celery任务模块名
 > 1. 启动celery没有 tasks 列表没有任务，Celery没有扫描到Django里的所有函数，解决方法：将任务所在模块的路由添加上。
 > 2. Windows系统celery启动任务不执行，解决方法：将celery启动命令行加上 -P eventlet。
 > 3. 调试celery时，使用Shell，方便快捷。
+> 4. Linux的root账号启动不起来，需要 `export C_FORCE_ROOT="true"`
 
 https://docs.celeryq.dev/en/stable/django/first-steps-with-django.html#using-celery-with-django
 
@@ -2248,9 +2249,102 @@ Percentage of the requests served within a certain time (ms)
 > `ulimit -n` 查看
 
 + ⽂件描述符: 限制⽂件打开数量 (⼀切皆⽂件) 
-
 + 内核限制: `net.core.somaxconn`
-
 + 内存限制 
-
 + 修改⽂件描述符: `ulimit -n 65535`
+
+## 十九. WSGI与Nginx配置
+
+### Gunicorn 扮演的角色
+
+|         | HTTP Server | WSGI | WebAPP |
+| ------- | ----------- | ---- | ------ |
+| Request | Gunicorn    | WSGI | Django |
+
+```
+HTTP Server => 负责 
+| ^				1. 建立与客户端的连接，接收客服端的⽹络数据; 
+| |				2. 发送客服端的⽹络数据，断开与客户端的连接。
+v |
+WSGI => 负责 在 HTTPServer 和 WebApp 之间进⾏数据转换
+| ^			1. 将用户的 “请求报文” 转化成 HTTPRequest 对象 
+| |			2. 将 WebApp 返回的 HTTPResponse 对象转换成 “响应报文”
+v |
+Web App => 负责 Web 应⽤的业务逻辑、数据存储等等
+
+1. HTTP Server 从网络上接收到大段的二进制字符串，就和socket之间传输的数据一样，bytes 类型的文本，自己不进行处理；
+2. HTTP Server把这些数据交给WSGI，WSGI将这些数据翻译成WebAPP可以使用的request对象；
+3. 然后WSGI将这些数据交给WebAPP。
+```
+
+### 分清几个概念 
+
+> + **WSGI**: 全称是 `WebServerGatewayInterface`, 它是 Python 官⽅定义的⼀种描述 HTTP 服务器 (如nginx)与 Web 应⽤程序 (如 Django、Flask) 通信的规范。全⽂定义在 `PEP333 `
+> + **uwsgi**: 与 WSGI 类似, 是 uWSGI 服务器⾃定义的通信协议, ⽤于定义传输信息的类型(type of information)。每⼀个 uwsgi packet 前 `4byte` 为传输信息类型的描述, 与 WSGI 协议是两种东⻄, 该协议性能远好于早期的 `Fast-CGI` 协议。 和WSGI是两种完全不同的东西。
+> + **uWSGI**: uWSGI 是⼀个全功能的 HTTP 服务器, 实现了WSGI协议、uwsgi 协议、http 协议 等。它要做的就是把 HTTP协议转化成语⾔⽀持的⽹络协议。⽐如把 HTTP 协议转化成 WSGI 协议, 让 Python 可以直接使⽤。**即支持WSGI协议，也支持uWSGI协议。**
+
+### 服务器的登陆与维护
+
+```
+/opt 放自己的东西
+/project 在根目录额外独立的创建一个项目文件夹
+这两个选一个，把项目放在一个不常用的地方，防止误操作
+```
+
+1. SSH 登陆服务器: ssh root@xxx.xxx.xxx.xxx 
+
+2. 密钥 
+   1. 产⽣: ssh-keygen 
+   2. 公钥: ~/.ssh/id_rsa.pub 
+   3. 私钥: ~/.ssh/id_rsa 
+   4. 免密登陆服务器 
+      1. 复制公钥内容 
+      2. 将公钥内容粘贴到服务器的 ~/.ssh/authorized_keys 
+
+3. 代码上传 
+   1. rsync —— remote sync 远程同步（windows安装麻烦，直接用Tremius的SFTP也行）
+
+   2. [rsync 资料](https://www.cnblogs.com/f-ck-need-u/p/7220009.html)
+
+   3. ```
+      rsync -crvP --exclude={.git,.venv,__pycache__} ./ root@82.157.36.220:/opt/swiper/
+      """
+      -c check		检查本地和远程文件有哪些不同，如果不同的话才会上传，如果相同的话会跳过这些文件
+      -r --recursive	递归到目录中去
+      -v 				显示rsync过程中详细信息。可以使用"-vvvv"获取更详细信息。
+      -P				显示文件传输的进度信息。(实际上"-P"="--partial --progress"，其中的"--progress"才是显示进度信息的)。
+      --exclude		指定排除规则来排除不需要传输的文件。
+      ./				当前文件夹
+      root@xxx:		账号@ip:端口默认22
+      /opt/swiper/	远程路径
+      """
+      ```
+
+### Gunicorn 进程模型
+
++ master：主进程，负责管理子进程，不干活
++ worker：子进程，接受用户请求并处理
++ worker：子进程，接受用户请求并处理
++ worker：子进程，接受用户请求并处理
++ worker：子进程，接受用户请求并处理
+
+> 查看进程里的cpu信息：`cat /proc/cpuinfo`
+>
+> 查看内存：
+>
+> + free -m	以Mb为单位
+> + free -k 	以Kb为单位
+> + free -g	 以Gb为单位
+
+### Nginx
+
+[Nginx下载稳定版 Stable version](http://nginx.org/en/download.html)
+
+```
+cd download  # 1.在根目录的download文件夹下载安装包
+wget http://nginx.org/download/nginx-1.22.0.tar.gz  # 2.下载压缩包
+tar -xzf nginx-1.22.0.tar.gz  # 3.解压
+cd nginx-1.22.0/  # 4.进入文件夹
+./configure  # 将二进制的源代码进行编译，多了一个Makefile文件
+```
+
